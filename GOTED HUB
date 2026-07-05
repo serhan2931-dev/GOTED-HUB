@@ -19,10 +19,10 @@ local Flags = {
     FPSBoost = false
 }
 
-local TargetSeed = "bamboo"
+local TargetSeed = "carrot"
 local FlingTargetName = ""
 local SpecialTargets = {"gold seed", "rainbow seed", "mega seed", "golden seed"}
-local CustomWalkSpeed = 70
+local CustomWalkSpeed = 50
 
 -- --- 1. STRICT ANTI-SELF HARVEST PROTECTION ---
 local function IsPlotFriendly(plot)
@@ -57,8 +57,6 @@ task.spawn(function()
         local clock = Lighting.ClockTime
         local isNight = (clock >= 18 or clock <= 6)
         
-        -- Night lasting 2 mins, Morning 7:30, Sunset 30s is handled by server game logic.
-        -- This HUD tracks the exact remaining cycle values visually.
         if not isNight then
             HUD.Text = "☀️ DAYTIME (GROWING Phase)\nCLOCK TIME: " .. string.format("%.2f", clock)
             HUD.TextColor3 = Color3.fromRGB(255, 223, 0)
@@ -66,23 +64,23 @@ task.spawn(function()
         else
             if w:find("blood") then 
                 HUD.Text = "🔴 BLOOD MOON EVENT\nSTATUS: MUTATION ENHANCED"
-                HUD.TextColor3 = Color3.fromRGB(255, 0, 0) -- RED
+                HUD.TextColor3 = Color3.fromRGB(255, 0, 0)
                 HUDStroke.Color = Color3.fromRGB(255, 0, 0)
             elseif w:find("gold") or w:find("midas") then 
                 HUD.Text = "🟡 GOLDEN MOON EVENT\nSNIPING: GOLD SEEDS ACTIVE"
-                HUD.TextColor3 = Color3.fromRGB(255, 215, 0) -- GOLDEN
+                HUD.TextColor3 = Color3.fromRGB(255, 215, 0)
                 HUDStroke.Color = Color3.fromRGB(255, 215, 0)
             elseif w:find("rainbow") then 
                 HUD.Text = "🌈 RAINBOW MOON EVENT\nSNIPING: RAINBOW SEEDS ACTIVE"
-                HUD.TextColor3 = Color3.fromRGB(255, 105, 180) -- RAINBOW COLORED
+                HUD.TextColor3 = Color3.fromRGB(255, 105, 180)
                 HUDStroke.Color = Color3.fromRGB(255, 105, 180)
             elseif w:find("mega") then 
                 HUD.Text = "🔵 MEGA MOON EVENT\nSNIPING: MEGA SEEDS ACTIVE"
-                HUD.TextColor3 = Color3.fromRGB(0, 255, 255) -- BLUE
+                HUD.TextColor3 = Color3.fromRGB(0, 255, 255)
                 HUDStroke.Color = Color3.fromRGB(0, 255, 255)
             else 
                 HUD.Text = "🌙 NORMAL NIGHT\nSTATUS: BLACK MOON ACTIVE"
-                HUD.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+                HUD.TextColor3 = Color3.fromRGB(200, 200, 200)
                 HUDStroke.Color = Color3.fromRGB(45, 45, 55)
             end
         end
@@ -92,7 +90,6 @@ end)
 
 -- --- 3. HARD ENGINE MECHANICS (STEAL, SNIPER, FLING) ---
 
--- Anti-Lag Stealing Core
 task.spawn(function()
     while true do
         task.wait(0.3)
@@ -116,7 +113,6 @@ task.spawn(function()
     end
 end)
 
--- Special Moon Drop Sniper & Auto Seed Buyer Engine
 task.spawn(function()
     while true do
         task.wait(0.2)
@@ -144,7 +140,6 @@ task.spawn(function()
     end
 end)
 
--- Mobile Angular Velocity Fling Engine
 local function ExecuteTargetFling()
     local HRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not Flags.FlingEngine or not HRP or FlingTargetName == "" then return end
@@ -225,7 +220,7 @@ Header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 Header.TextColor3 = Color3.fromRGB(0, 255, 127)
 Header.Font = Enum.Font.Code
 Header.TextSize = 14
-Header.Text = "MVX MASTER INTERFACE V51"
+Header.Text = "GOTED HUB // V51 PRODUCTION"
 Instance.new("UICorner", Header)
 
 local PlayerScroll = Instance.new("ScrollingFrame", MainFrame)
