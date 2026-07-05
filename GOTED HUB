@@ -1,4 +1,4 @@
--- [[ MVX HUB - V43 PERFECTED GAME BUILD ]] --
+-- [[ MVX HUB - V44 LOW-RAM PERFORMANCE PROD ]] --
 
 local Flags = {
     AutoBuy = false, NightSteal = false, SpeedToggle = false, 
@@ -16,7 +16,6 @@ local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
 local Character, HRP
 local function UpdateCache(char)
@@ -26,14 +25,13 @@ end
 LocalPlayer.CharacterAdded:Connect(UpdateCache)
 if LocalPlayer.Character then UpdateCache(LocalPlayer.Character) end
 
--- --- UTILITY HOOKS ---
 local function FirePrompt(prompt)
     if prompt:IsA("ProximityPrompt") then
         fireproximityprompt(prompt)
     end
 end
 
--- --- DYNAMIC ENVIRONMENT & WEATHER TRACKER ---
+-- --- DYNAMIC ENVIRONMENT TRACKER (UI) ---
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local TrackerFrame = Instance.new("Frame", ScreenGui)
 TrackerFrame.Size = UDim2.new(0, 360, 0, 45)
@@ -107,11 +105,11 @@ task.spawn(function()
                 end
             end
         end)
-        task.wait(0.5)
+        task.wait(1)
     end
 end)
 
--- --- MOVEMENT & NOCLIP ENGINE ---
+-- --- MOVEMENT ENGINE ---
 RunService.Heartbeat:Connect(function()
     if Character and HRP and Character:FindFirstChild("Humanoid") then
         if Flags.SpeedToggle then Character.Humanoid.WalkSpeed = 70 end
@@ -129,88 +127,73 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- --- PERFORMANCE OPTIMIZER ---
+-- --- MAX ULTRA PERFORMANCE BOOST ---
 local function ApplyFPSBoost()
     settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
     Lighting.GlobalShadows = false
+    Lighting.EnvironmentSpecularScale = 0
+    Workspace.Terrain.WaterWaveSize = 0
     for _, v in pairs(Workspace:GetDescendants()) do
-        if v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") then v:Destroy() end
-        if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic v.CastShadow = false end
+        if v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") then 
+            v:Destroy() 
+        end
+        if v:IsA("BasePart") then 
+            v.Material = Enum.Material.SmoothPlastic 
+            v.CastShadow = false 
+            v.Reflectance = 0
+        end
     end
 end
 
--- --- COMPACT FLING ENGINE ---
-local function ExecuteTargetFling()
-    if not Flags.FlingEngine or not HRP or FlingTargetName == "" then return end
-    local targetPlayer = Players:FindFirstChild(FlingTargetName)
-    if not targetPlayer or not targetPlayer.Character then return end
-    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
+-- --- EVENT DRIVEN INTERACTION (NO LAG LOOPS) ---
+local function CheckPrompt(obj)
+    if not obj:IsA("ProximityPrompt") then return end
+    local pName = string.lower(obj.Parent.Name .. obj.ObjectText .. obj.ActionText)
     
-    local oldCFrame = HRP.CFrame
-    local bV = Instance.new("BodyVelocity")
-    bV.MaxForce = Vector3.new(1, 1, 1) * math.huge
-    bV.Velocity = Vector3.new(50000, 50000, 50000)
-    bV.Parent = HRP
-    
-    local bAV = Instance.new("BodyAngularVelocity")
-    bAV.MaxTorque = Vector3.new(1, 1, 1) * math.huge
-    bAV.AngularVelocity = Vector3.new(50000, 50000, 50000)
-    bAV.Parent = HRP
-    
-    for i = 1, 40 do
-        if not Flags.FlingEngine or not targetHRP or not HRP then break end
-        HRP.CFrame = targetHRP.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
-        task.wait(0.02)
+    if Flags.AutoBuy and string.find(pName, string.lower(TargetSeed)) then
+        FirePrompt(obj)
     end
     
-    bV:Destroy()
-    bAV:Destroy()
-    HRP.CFrame = oldCFrame
+    if Flags.EventSniper then
+        for _, term in pairs(SpecialTargets) do
+            if string.find(pName, term) then
+                FirePrompt(obj)
+            end
+        end
+    end
 end
 
--- --- DYNAMIC SNIPER MECHANIC ---
+Workspace.DescendantAdded:Connect(function(descendant)
+    if Flags.AutoBuy or Flags.EventSniper then
+        CheckPrompt(descendant)
+    end
+end)
+
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        task.wait(0.5) -- Relaxed polling loop to save RAM
         if Flags.FPSBoost then ApplyFPSBoost() end
-        
         if Flags.AutoBuy or Flags.EventSniper then
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    if obj:IsA("ProximityPrompt") then
-                        local pName = string.lower(obj.Parent.Name .. obj.ObjectText .. obj.ActionText)
-                        
-                        if Flags.AutoBuy and string.find(pName, string.lower(TargetSeed)) then
-                            FirePrompt(obj)
-                        end
-                        
-                        if Flags.EventSniper then
-                            for _, term in pairs(SpecialTargets) do
-                                if string.find(pName, term) then
-                                    FirePrompt(obj)
-                                end
-                            end
-                        end
-                    end
+                    CheckPrompt(obj)
                 end
             end)
         end
     end
 end)
 
--- --- ABSOLUTE STEAL ENGINE WITH CLEAN INTERRUPT ---
+-- --- PERFORMANCE INTERRUPT NIGHT STEAL ---
 task.spawn(function()
     while true do
-        task.wait(0.25)
+        task.wait(0.4)
         if Flags.NightSteal and HRP then
             pcall(function()
                 for _, plot in pairs(Workspace:GetChildren()) do
                     if not Flags.NightSteal then break end
-                    
                     local plotName = string.lower(plot.Name)
+                    
                     if string.find(plotName, "plot") or string.find(plotName, "garden") or plot:FindFirstChild("Owner") then
-                        
                         local isOwnPlot = false
                         if string.find(plotName, string.lower(LocalPlayer.Name)) or string.find(plotName, string.lower(LocalPlayer.DisplayName)) then
                             isOwnPlot = true
@@ -224,7 +207,7 @@ task.spawn(function()
                                 if not Flags.NightSteal then break end
                                 if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText), "harvest") then
                                     HRP.CFrame = p.Parent.CFrame
-                                    task.wait(0.12)
+                                    task.wait(0.15)
                                     if Flags.NightSteal then FirePrompt(p) end
                                 end
                             end
@@ -236,7 +219,37 @@ task.spawn(function()
     end
 end)
 
--- --- MAIN UI CONTROL INTERFACE ---
+-- --- LINEAR FORCE FLING SYSTEM ---
+local function ExecuteTargetFling()
+    if not Flags.FlingEngine or not HRP or FlingTargetName == "" then return end
+    local targetPlayer = Players:FindFirstChild(FlingTargetName)
+    if not targetPlayer or not targetPlayer.Character then return end
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+    
+    local oldCFrame = HRP.CFrame
+    local bV = Instance.new("BodyVelocity")
+    bV.MaxForce = Vector3.new(1, 1, 1) * math.huge
+    bV.Velocity = Vector3.new(45000, 45000, 45000)
+    bV.Parent = HRP
+    
+    local bAV = Instance.new("BodyAngularVelocity")
+    bAV.MaxTorque = Vector3.new(1, 1, 1) * math.huge
+    bAV.AngularVelocity = Vector3.new(45000, 45000, 45000)
+    bAV.Parent = HRP
+    
+    for i = 1, 30 do
+        if not Flags.FlingEngine or not targetHRP or not HRP then break end
+        HRP.CFrame = targetHRP.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
+        task.wait(0.03)
+    end
+    
+    bV:Destroy()
+    bAV:Destroy()
+    HRP.CFrame = oldCFrame
+end
+
+-- --- MAIN UI HUB ---
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 430, 0, 360)
 MainFrame.Position = UDim2.new(0.5, -215, 0.5, -140)
@@ -260,7 +273,7 @@ Header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 Header.TextColor3 = Color3.fromRGB(0, 255, 127)
 Header.Font = Enum.Font.Code
 Header.TextSize = 14
-Header.Text = "MVX MASTER INTERFACE V43"
+Header.Text = "MVX MASTER PERFORMANCE V44"
 Instance.new("UICorner", Header)
 
 local PlayerScroll = Instance.new("ScrollingFrame", MainFrame)
