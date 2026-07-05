@@ -1,4 +1,4 @@
--- [[ MVX HUB - V40 MASTER FULL UNABRIDGED EDITION ]] --
+-- [[ MVX HUB - V41 FIXED MASTER EDITION ]] --
 
 local Flags = {
     AutoBuy = false, NightSteal = false, SpeedToggle = false, 
@@ -8,7 +8,7 @@ local Flags = {
 
 local TargetSeed = "bamboo" 
 local FlingTargetName = ""
-local SpecialTargets = {"golden", "rainbow", "mega", "moon", "meteor", "ghost"}
+local SpecialTargets = {"golden", "rainbow", "mega", "moon"} -- Cleaned up to match valid rare variants
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -62,9 +62,9 @@ local function ApplyFPSBoost()
     end
 end
 
--- --- EXPERIMENTAL TARGET FLING SYSTEM ---
+-- --- FIXED TARGET FLING SYSTEM ---
 local function ExecuteTargetFling()
-    if not HRP or FlingTargetName == "" then return end
+    if not Flags.FlingEngine or not HRP or FlingTargetName == "" then return end
     local targetPlayer = Players:FindFirstChild(FlingTargetName)
     if not targetPlayer or not targetPlayer.Character then return end
     local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -82,7 +82,7 @@ local function ExecuteTargetFling()
     bAV.Parent = HRP
     
     for i = 1, 35 do
-        if not targetHRP or not HRP then break end
+        if not Flags.FlingEngine or not targetHRP or not HRP then break end
         HRP.CFrame = targetHRP.CFrame * CFrame.Angles(math.rad(math.random(-180, 180)), math.rad(math.random(-180, 180)), 0)
         task.wait(0.02)
     end
@@ -92,7 +92,7 @@ local function ExecuteTargetFling()
     HRP.CFrame = oldCFrame
 end
 
--- --- AUTOMATION ENGINES LOOP (GROW A GARDEN 2 OPTIMIZED) ---
+-- --- AUTOMATION ENGINES LOOP ---
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -102,17 +102,23 @@ task.spawn(function()
             for _, obj in pairs(Workspace:GetDescendants()) do
                 if obj:IsA("ProximityPrompt") then
                     local pName = string.lower(obj.Parent.Name .. obj.ObjectText .. obj.ActionText)
+                    local actionText = string.lower(obj.ActionText)
                     
                     -- Auto Buy Filter
                     if Flags.AutoBuy and string.find(pName, string.lower(TargetSeed)) then
                         FirePrompt(obj)
                     end
                     
-                    -- Event Sniper Filter (Moons, Meteors, Golden, Rainbow, Mega, Ghosts)
+                    -- FIXED MOON & EVENT SNIPER FILTER
+                    -- Automatically captures prompts matching specific action commands during world/moon events
                     if Flags.EventSniper then
-                        for _, term in pairs(SpecialTargets) do
-                            if string.find(pName, term) then
-                                FirePrompt(obj)
+                        if string.find(actionText, "harvest") or string.find(actionText, "collect") or string.find(actionText, "claim") or string.find(actionText, "grab") then
+                            FirePrompt(obj)
+                        else
+                            for _, term in pairs(SpecialTargets) do
+                                if string.find(pName, term) then
+                                    FirePrompt(obj)
+                                end
                             end
                         end
                     end
@@ -122,19 +128,32 @@ task.spawn(function()
     end
 end)
 
--- --- NIGHT STEAL SYSTEM ---
+-- --- FIXED ANTI-SELF NIGHT STEAL SYSTEM ---
 task.spawn(function()
     while true do
         task.wait(0.4)
         if Flags.NightSteal and HRP then
             pcall(function()
                 for _, plot in pairs(Workspace:GetChildren()) do
-                    if string.find(string.lower(plot.Name), "plot") or string.find(string.lower(plot.Name), "garden") then
-                        for _, p in pairs(plot:GetDescendants()) do
-                            if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText), "harvest") then
-                                HRP.CFrame = p.Parent.CFrame
-                                task.wait(0.15)
-                                FirePrompt(p)
+                    local plotName = string.lower(plot.Name)
+                    if string.find(plotName, "plot") or string.find(plotName, "garden") then
+                        
+                        -- CRITICAL: Prevent stealing from your own plot layout
+                        local isOwnPlot = false
+                        if string.find(plotName, string.lower(LocalPlayer.Name)) or string.find(plotName, string.lower(LocalPlayer.DisplayName)) then
+                            isOwnPlot = true
+                        end
+                        if plot:FindFirstChild("Owner") and plot.Owner.Value == LocalPlayer then
+                            isOwnPlot = true
+                        end
+                        
+                        if not isOwnPlot then
+                            for _, p in pairs(plot:GetDescendants()) do
+                                if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText), "harvest") then
+                                    HRP.CFrame = p.Parent.CFrame
+                                    task.wait(0.15)
+                                    FirePrompt(p)
+                                end
                             end
                         end
                     end
@@ -162,7 +181,6 @@ FrameGlow.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
 FrameGlow.ZIndex = 0
 Instance.new("UICorner", FrameGlow).CornerRadius = UDim.new(0, 10)
 
--- Top Stats & Clock Area
 local TopBar = Instance.new("TextLabel", MainFrame)
 TopBar.Size = UDim2.new(0.92, 0, 0, 40)
 TopBar.Position = UDim2.new(0.04, 0, 0.03, 0)
@@ -174,12 +192,12 @@ Instance.new("UICorner", TopBar)
 
 task.spawn(function()
     while true do
-        TopBar.Text = " MVX ENGINE V40 | SERVER CLOCK: " .. string.format("%.2f", Lighting.ClockTime)
+        TopBar.Text = " MVX ENGINE V41 | SERVER CLOCK: " .. string.format("%.2f", Lighting.ClockTime)
         task.wait(0.5)
     end
 end)
 
--- Player Dynamic Scrolling Selection Frame
+-- Player Scrolling Frame
 local PlayerScroll = Instance.new("ScrollingFrame", MainFrame)
 PlayerScroll.Size = UDim2.new(0.45, 0, 0, 100)
 PlayerScroll.Position = UDim2.new(0.04, 0, 0.16, 0)
@@ -221,17 +239,29 @@ Players.PlayerAdded:Connect(UpdatePlayerList)
 Players.PlayerRemoving:Connect(UpdatePlayerList)
 UpdatePlayerList()
 
+-- Toggle Fling Activation Button
 local FlingBtn = Instance.new("TextButton", MainFrame)
 FlingBtn.Size = UDim2.new(0.43, 0, 0, 65)
 FlingBtn.Position = UDim2.new(0.53, 0, 0.25, 0)
-FlingBtn.Text = "💥 FLING TARGET"
-FlingBtn.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+FlingBtn.Text = "💥 FLING ENGINE [OFF]"
+FlingBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 FlingBtn.TextColor3 = Color3.new(1, 1, 1)
 FlingBtn.Font = Enum.Font.SourceSansBold
 Instance.new("UICorner", FlingBtn)
-FlingBtn.MouseButton1Down:Connect(ExecuteTargetFling)
 
--- Main Option Scrolling Frame
+FlingBtn.MouseButton1Down:Connect(function()
+    Flags.FlingEngine = not Flags.FlingEngine
+    if Flags.FlingEngine then
+        FlingBtn.Text = "💥 FLING ENGINE [ON]"
+        FlingBtn.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+        ExecuteTargetFling()
+    else
+        FlingBtn.Text = "💥 FLING ENGINE [OFF]"
+        FlingBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    end
+end)
+
+-- Option Scrolling Frame
 local Scroll = Instance.new("ScrollingFrame", MainFrame)
 Scroll.Size = UDim2.new(0.94, 0, 0.52, 0)
 Scroll.Position = UDim2.new(0.03, 0, 0.45, 0)
@@ -239,19 +269,25 @@ Scroll.CanvasSize = UDim2.new(0, 0, 3.5, 0)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 3
 
-local function AddMenuButton(text, pos, flagKey, bgCol)
+local function AddMenuButton(text, pos, flagKey, defaultCol)
     local btn = Instance.new("TextButton", Scroll)
     btn.Size = UDim2.new(0.92, 0, 0, 36)
     btn.Position = pos
-    btn.Text = text
-    btn.BackgroundColor3 = bgCol
+    btn.Text = text .. " [OFF]"
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SourceSansBold
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Down:Connect(function()
         Flags[flagKey] = not Flags[flagKey]
-        btn.BackgroundColor3 = Flags[flagKey] and Color3.fromRGB(0, 200, 0) or bgCol
+        if Flags[flagKey] then
+            btn.Text = text .. " [ON]"
+            btn.BackgroundColor3 = defaultCol
+        else
+            btn.Text = text .. " [OFF]"
+            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        end
     end)
 end
 
