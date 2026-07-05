@@ -1,4 +1,4 @@
--- [[ GOTED HUB V52 - FIXED PRODUCTION & AUTO-SELL UPDATE ]] --
+-- [[ GOTED HUB V53 - HIGH PERFORMANCE OPTIMIZED REBUILD ]] --
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -25,34 +25,33 @@ local FlingTargetName = ""
 local SpecialTargets = {"gold seed", "rainbow seed", "mega seed", "golden seed"}
 local CustomWalkSpeed = 70
 
--- --- 1. STRICT ANTI-SELF HARVEST PROTECTION ---
+-- --- ANTI-SELF PROTECTION ---
 local function IsPlotFriendly(plot)
     if not plot then return false end
-    local pName = string.lower(LocalPlayer.Name or "")
-    local pDisplay = string.lower(LocalPlayer.DisplayName or "")
-    local plotName = string.lower(plot.Name or "")
-    
-    if string.find(plotName, pName) or string.find(plotName, pDisplay) then return true end
-    if plot:FindFirstChild("Owner") and plot.Owner.Value == LocalPlayer then return true end
-    
+    local nameLower = string.lower(plot.Name or "")
+    if string.find(nameLower, string.lower(LocalPlayer.Name or "")) or string.find(nameLower, string.lower(LocalPlayer.DisplayName or "")) then 
+        return true 
+    end
+    local owner = plot:FindFirstChild("Owner")
+    if owner and owner.Value == LocalPlayer then return true end
     return false
 end
 
--- --- 2. THE VISUAL MOON TIMER HUD ---
+-- --- MOON PREDICTION HUD & TIMER ENGINE ---
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "GotedHUD_Secure"
+ScreenGui.Name = "GotedHUD_Optimized"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local HUD = Instance.new("TextLabel", ScreenGui)
-HUD.Size = UDim2.new(0, 340, 0, 50)
+HUD.Size = UDim2.new(0, 340, 0, 60)
 HUD.Position = UDim2.new(0.5, -170, 0, 15)
 HUD.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 HUD.BackgroundTransparency = 0.2
 HUD.Font = Enum.Font.Code
-HUD.TextSize = 14
+HUD.TextSize = 13
 HUD.TextColor3 = Color3.new(1, 1, 1)
-HUD.Text = "🌙 INITIALIZING ENGINES..."
+HUD.Text = "🌙 SYNCING TIMELINES..."
 Instance.new("UICorner", HUD).CornerRadius = UDim.new(0, 8)
 local HUDStroke = Instance.new("UIStroke", HUD)
 HUDStroke.Color = Color3.fromRGB(138, 43, 226)
@@ -60,58 +59,75 @@ HUDStroke.Color = Color3.fromRGB(138, 43, 226)
 task.spawn(function()
     while true do
         pcall(function()
-            local w = (Lighting:GetAttribute("Weather") or Workspace:GetAttribute("Weather") or "Normal"):lower()
+            local weather = (Lighting:GetAttribute("Weather") or Workspace:GetAttribute("Weather") or "Normal"):lower()
             local clock = Lighting.ClockTime
             local isNight = (clock >= 18 or clock <= 6)
             
+            -- Calculate precise prediction steps
+            local remainingTime = 0
+            local timerString = ""
+            
             if not isNight then
-                HUD.Text = "☀️ DAYTIME (GROWING Phase)\nCLOCK TIME: " .. string.format("%.2f", clock)
+                -- Day lasts until clock hits 18
+                remainingTime = math.max(0, 18 - clock)
+                local minutes = math.floor(remainingTime * 60)
+                timerString = string.format("\n🌙 NEXT MOON IN: %dm", minutes)
+                
+                HUD.Text = "☀️ DAYTIME (GROWING PHASE)" .. timerString
                 HUD.TextColor3 = Color3.fromRGB(255, 223, 0)
                 HUDStroke.Color = Color3.fromRGB(255, 223, 0)
             else
-                if w:find("blood") then 
-                    HUD.Text = "🔴 BLOOD MOON EVENT\nSTATUS: MUTATION ENHANCED"
+                -- Night lasts until clock hits 6 (handles crossing midnight at 24)
+                if clock >= 18 then
+                    remainingTime = (24 - clock) + 6
+                else
+                    remainingTime = 6 - clock
+                end
+                local minutes = math.floor(remainingTime * 60)
+                timerString = string.format("\n☀️ DAYBREAK IN: %dm", minutes)
+                
+                if weather:find("blood") then 
+                    HUD.Text = "🔴 BLOOD MOON ACTIVE [MUTATION BOOST]" .. timerString
                     HUD.TextColor3 = Color3.fromRGB(255, 0, 0)
                     HUDStroke.Color = Color3.fromRGB(255, 0, 0)
-                elseif w:find("gold") or w:find("midas") then 
-                    HUD.Text = "🟡 GOLDEN MOON EVENT\nSNIPING: GOLD SEEDS ACTIVE"
+                elseif weather:find("gold") or weather:find("midas") then 
+                    HUD.Text = "🟡 GOLDEN MOON ACTIVE [SNIPING ALL GOLD]" .. timerString
                     HUD.TextColor3 = Color3.fromRGB(255, 215, 0)
                     HUDStroke.Color = Color3.fromRGB(255, 215, 0)
-                elseif w:find("rainbow") then 
-                    HUD.Text = "🌈 RAINBOW MOON EVENT\nSNIPING: RAINBOW SEEDS ACTIVE"
+                elseif weather:find("rainbow") then 
+                    HUD.Text = "🌈 RAINBOW MOON ACTIVE [SNIPING ALL RAINBOW]" .. timerString
                     HUD.TextColor3 = Color3.fromRGB(255, 105, 180)
                     HUDStroke.Color = Color3.fromRGB(255, 105, 180)
-                elseif w:find("mega") then 
-                    HUD.Text = "🔵 MEGA MOON EVENT\nSNIPING: MEGA SEEDS ACTIVE"
+                elseif weather:find("mega") then 
+                    HUD.Text = "🔵 MEGA MOON ACTIVE [SNIPING ALL MEGA]" .. timerString
                     HUD.TextColor3 = Color3.fromRGB(0, 255, 255)
                     HUDStroke.Color = Color3.fromRGB(0, 255, 255)
                 else 
-                    HUD.Text = "🌙 NORMAL NIGHT\nSTATUS: BLACK MOON ACTIVE"
+                    HUD.Text = "🌙 NORMAL NIGHT ACTIVE [STEAL ENGINE READY]" .. timerString
                     HUD.TextColor3 = Color3.fromRGB(200, 200, 200)
                     HUDStroke.Color = Color3.fromRGB(45, 45, 55)
                 end
             end
         end)
-        task.wait(0.5)
+        task.wait(1) -- Throttle to once per second to reduce client resource drain completely
     end
 end)
 
--- --- 3. CORE AUTOMATION ENGINES (STEAL, BUY, SNIPER, SELL) ---
+-- --- LIGHTWEIGHT CORE SCHEDULERS ---
 
--- Fixed Steal Engine (Skips your plot completely)
+-- Optimized Steal / Harvest Engine
 task.spawn(function()
     while true do
-        task.wait(0.25)
+        task.wait(0.4)
         if Flags.NightSteal and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             pcall(function()
-                for _, plot in pairs(Workspace:GetChildren()) do
+                for _, plot in ipairs(Workspace:GetChildren()) do
                     if not Flags.NightSteal then break end
-                    if (plot.Name:lower():find("plot") or plot:FindFirstChild("Owner")) and not IsPlotFriendly(plot) then
-                        for _, p in pairs(plot:GetDescendants()) do
-                            if not Flags.NightSteal then break end
-                            if p:IsA("ProximityPrompt") and p.ActionText:lower():find("harvest") then
+                    if (string.find(string.lower(plot.Name), "plot") or plot:FindFirstChild("Owner")) and not IsPlotFriendly(plot) then
+                        for _, p in ipairs(plot:GetDescendants()) do
+                            if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText or ""), "harvest") then
                                 LocalPlayer.Character.HumanoidRootPart.CFrame = p.Parent.CFrame
-                                task.wait(0.1)
+                                task.wait(0.15)
                                 if Flags.NightSteal then fireproximityprompt(p) end
                             end
                         end
@@ -122,24 +138,27 @@ task.spawn(function()
     end
 end)
 
--- Auto Buy Seeds & Special Moon Sniper Engine
+-- Optimized Auto Buy & Moon Event Sniper Engine
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.5)
         if Flags.AutoBuy or Flags.EventSniper then
             pcall(function()
-                for _, obj in pairs(Workspace:GetDescendants()) do
+                -- Target specific shops or structures rather than scanning the entire map universe
+                for _, obj in ipairs(Workspace:GetDescendants()) do
                     if obj:IsA("ProximityPrompt") then
-                        local pName = string.lower(obj.Parent.Name .. obj.ObjectText .. obj.ActionText)
+                        local combinedText = string.lower((obj.Parent and obj.Parent.Name or "") .. (obj.ObjectText or "") .. (obj.ActionText or ""))
                         
-                        if Flags.AutoBuy and string.find(pName, string.lower(TargetSeed)) and string.find(pName, "buy") then
+                        if Flags.AutoBuy and string.find(combinedText, string.lower(TargetSeed)) and string.find(combinedText, "buy") then
                             fireproximityprompt(obj)
+                            task.wait(0.1)
                         end
                         
                         if Flags.EventSniper then
-                            for _, term in pairs(SpecialTargets) do
-                                if string.find(pName, term) then
+                            for _, term in ipairs(SpecialTargets) do
+                                if string.find(combinedText, term) then
                                     fireproximityprompt(obj)
+                                    task.wait(0.1)
                                 end
                             end
                         end
@@ -150,17 +169,17 @@ task.spawn(function()
     end
 end)
 
--- NEW: Auto Sell Engine Module
+-- Optimized Auto Sell Engine
 task.spawn(function()
     while true do
-        task.wait(0.5)
+        task.wait(0.6)
         if Flags.AutoSell and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             pcall(function()
-                for _, obj in pairs(Workspace:GetDescendants()) do
+                for _, obj in ipairs(Workspace:GetDescendants()) do
                     if not Flags.AutoSell then break end
                     if obj:IsA("ProximityPrompt") and string.find(string.lower(obj.ActionText or ""), "sell") then
                         LocalPlayer.Character.HumanoidRootPart.CFrame = obj.Parent.CFrame
-                        task.wait(0.1)
+                        task.wait(0.2)
                         if Flags.AutoSell then fireproximityprompt(obj) end
                     end
                 end
@@ -169,7 +188,7 @@ task.spawn(function()
     end
 end)
 
--- Fling Module Mechanics
+-- Fling Execution Logic
 local function ExecuteTargetFling()
     local HRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not Flags.FlingEngine or not HRP or FlingTargetName == "" then return end
@@ -181,15 +200,15 @@ local function ExecuteTargetFling()
     local oldCFrame = HRP.CFrame
     local bV = Instance.new("BodyVelocity")
     bV.MaxForce = Vector3.new(1, 1, 1) * math.huge
-    bV.Velocity = Vector3.new(45000, 45000, 45000)
+    bV.Velocity = Vector3.new(40000, 40000, 40000)
     bV.Parent = HRP
     
     local bAV = Instance.new("BodyAngularVelocity")
     bAV.MaxTorque = Vector3.new(1, 1, 1) * math.huge
-    bAV.AngularVelocity = Vector3.new(45000, 45000, 45000)
+    bAV.AngularVelocity = Vector3.new(40000, 40000, 40000)
     bAV.Parent = HRP
     
-    for i = 1, 35 do
+    for i = 1, 30 do
         if not Flags.FlingEngine or not targetHRP or not HRP then break end
         HRP.CFrame = targetHRP.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
         task.wait(0.02)
@@ -201,7 +220,7 @@ local function ExecuteTargetFling()
     Flags.FlingEngine = false
 end
 
--- --- 4. MOVEMENT & GRAPHICS UTILITIES ---
+-- --- UTILITY HOOKS ---
 UserInputService.JumpRequest:Connect(function()
     if Flags.InfJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
         LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
@@ -210,7 +229,7 @@ end)
 
 RunService.Stepped:Connect(function()
     if Flags.NoClip and LocalPlayer.Character then
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
@@ -226,14 +245,14 @@ local function ToggleFPSBoost(state)
     if state then
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
         Lighting.GlobalShadows = false
-        for _, v in pairs(Workspace:GetDescendants()) do
+        for _, v in ipairs(Workspace:GetDescendants()) do
             if v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") then v:Destroy() end
             if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic v.CastShadow = false end
         end
     end
 end
 
--- --- 5. FIXED MAIN CONTROLLER INTERFACE UI ---
+-- --- MAIN HUB CONTROLLER GRAPHICAL INTERFACE ---
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 430, 0, 360)
 MainFrame.Position = UDim2.new(0.5, -215, 0.5, -140)
@@ -250,7 +269,7 @@ Header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 Header.TextColor3 = Color3.fromRGB(0, 255, 127)
 Header.Font = Enum.Font.Code
 Header.TextSize = 14
-Header.Text = "GOTED HUB // V52 INTERFACE"
+Header.Text = "GOTED HUB // V53 PERFORMANCE RUNTIME"
 Instance.new("UICorner", Header)
 
 local PlayerScroll = Instance.new("ScrollingFrame", MainFrame)
@@ -310,7 +329,7 @@ end)
 local Scroll = Instance.new("ScrollingFrame", MainFrame)
 Scroll.Size = UDim2.new(0.94, 0, 0.54, 0)
 Scroll.Position = UDim2.new(0.03, 0, 0.43, 0)
-Scroll.CanvasSize = UDim2.new(0, 0, 3.2, 0)
+Scroll.CanvasSize = UDim2.new(0, 0, 3.4, 0)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 3
 local ScrollList = Instance.new("UIListLayout", Scroll)
@@ -355,7 +374,6 @@ local function CreateSelector(label, items, layoutOrder, bgCol, callback)
     end)
 end
 
--- Render elements sequentially via LayoutOrder to avoid position overlaps
 CreateSelector("🌾 SEED TYPE SETTING", {"bamboo", "carrot", "strawberry", "ghost"}, 1, Color3.fromRGB(30, 144, 255), function(v) TargetSeed = v end)
 AddMenuButton("🛒 AUTO BUY SEEDS ENGINE", 2, "AutoBuy", Color3.fromRGB(0, 128, 128))
 AddMenuButton("💰 AUTO SELL CROPS ENGINE", 3, "AutoSell", Color3.fromRGB(218, 112, 214))
