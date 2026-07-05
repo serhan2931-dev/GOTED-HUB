@@ -1,22 +1,21 @@
--- [[ MVX HUB - V32 NEON EDITION + FLING COMPONENT ]] --
+-- [[ MVX HUB - V40 MASTER FULL UNABRIDGED EDITION ]] --
 
 local Flags = {
-    AutoFarm = false, AutoBuy = false, EventCollector = false, 
-    SpeedToggle = false, NoClip = false, FPSBoost = false, 
-    NightSteal = false, AutoBuyPets = false, FlingEngine = false
+    AutoBuy = false, NightSteal = false, SpeedToggle = false, 
+    NoClip = false, InfJump = false, FPSBoost = false, 
+    EventSniper = false, FlingEngine = false
 }
 
-local CustomSpeed = 45
-local TargetSeed = "bamboo"
-local TargetPet = "bunny"
+local TargetSeed = "bamboo" 
 local FlingTargetName = ""
-local CurrentTimeDisplay = "Calibrating..."
-local LockedHomeCFrame = nil 
+local SpecialTargets = {"golden", "rainbow", "mega", "moon", "meteor", "ghost"}
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local Character, HRP
 local function UpdateCache(char)
@@ -26,12 +25,44 @@ end
 LocalPlayer.CharacterAdded:Connect(UpdateCache)
 if LocalPlayer.Character then UpdateCache(LocalPlayer.Character) end
 
-local function IsNight()
-    local ct = Lighting.ClockTime
-    return ct >= 18 or ct <= 6
+-- --- INSTANT INTERACTION ENGINE ---
+local function FirePrompt(prompt)
+    if prompt:IsA("ProximityPrompt") then
+        fireproximityprompt(prompt)
+    end
 end
 
--- --- EXPERIMENTAL PHYS-FLING SYSTEM ---
+-- --- MOVEMENT ENGINE ---
+RunService.Heartbeat:Connect(function()
+    if Character and HRP and Character:FindFirstChild("Humanoid") then
+        if Flags.SpeedToggle then Character.Humanoid.WalkSpeed = 70 end
+        if Flags.NoClip then
+            for _, p in pairs(Character:GetDescendants()) do 
+                if p:IsA("BasePart") then p.CanCollide = false end 
+            end
+        end
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if Flags.InfJump and Character and Character:FindFirstChild("Humanoid") then 
+        Character.Humanoid:ChangeState("Jumping") 
+    end
+end)
+
+-- --- PERFORMANCE ENGINE (FPS BOOST) ---
+local function ApplyFPSBoost()
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    Lighting.GlobalShadows = false
+    Lighting.EnvironmentSpecularScale = 0
+    Workspace.Terrain.WaterWaveSize = 0
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") then v:Destroy() end
+        if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic v.CastShadow = false end
+    end
+end
+
+-- --- EXPERIMENTAL TARGET FLING SYSTEM ---
 local function ExecuteTargetFling()
     if not HRP or FlingTargetName == "" then return end
     local targetPlayer = Players:FindFirstChild(FlingTargetName)
@@ -50,102 +81,78 @@ local function ExecuteTargetFling()
     bAV.AngularVelocity = Vector3.new(99999, 99999, 99999)
     bAV.Parent = HRP
     
-    -- Target Collision Sequence
     for i = 1, 35 do
         if not targetHRP or not HRP then break end
         HRP.CFrame = targetHRP.CFrame * CFrame.Angles(math.rad(math.random(-180, 180)), math.rad(math.random(-180, 180)), 0)
         task.wait(0.02)
     end
     
-    -- Cleanup physical vectors & safely return
     bV:Destroy()
     bAV:Destroy()
-    if LockedHomeCFrame then HRP.CFrame = LockedHomeCFrame else HRP.CFrame = oldCFrame end
+    HRP.CFrame = oldCFrame
 end
 
--- --- AUTOMATION ENGINES LOOP ---
+-- --- AUTOMATION ENGINES LOOP (GROW A GARDEN 2 OPTIMIZED) ---
 task.spawn(function()
     while true do
-        if Flags.AutoBuyPets and HRP then
-            pcall(function()
-                for _, obj in ipairs(Workspace:GetDescendants()) do
-                    if obj:IsA("ProximityPrompt") then
-                        local pName = string.lower(obj.Parent.Name)
-                        if string.find(pName, TargetPet) then
-                            if (HRP.Position - obj.Parent.Position).Magnitude > 10 then
-                                HRP.CFrame = obj.Parent.CFrame * CFrame.new(0, 2, 0)
-                                task.wait(0.12)
-                            end
-                            fireproximityprompt(obj)
-                        end
+        task.wait(0.1)
+        pcall(function()
+            if Flags.FPSBoost then ApplyFPSBoost() end
+            
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") then
+                    local pName = string.lower(obj.Parent.Name .. obj.ObjectText .. obj.ActionText)
+                    
+                    -- Auto Buy Filter
+                    if Flags.AutoBuy and string.find(pName, string.lower(TargetSeed)) then
+                        FirePrompt(obj)
                     end
-                end
-            end)
-        end
-
-        if Flags.AutoBuy then
-            pcall(function()
-                for _, obj in ipairs(Workspace:GetDescendants()) do
-                    if obj:IsA("ProximityPrompt") then
-                        if string.find(string.lower(obj.Parent.Name), TargetSeed) then
-                            fireproximityprompt(obj)
-                        end
-                    end
-                end
-            end)
-        end
-
-        if Flags.NightSteal and IsNight() and HRP and LockedHomeCFrame then
-            pcall(function()
-                local targetFound = false
-                for _, obj in ipairs(Workspace:GetChildren()) do
-                    if string.find(string.lower(obj.Name), "plot") or string.find(string.lower(obj.Name), "garden") then
-                        for _, prompt in ipairs(obj:GetDescendants()) do
-                            if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), "harvest") then
-                                if (prompt.Parent.Position - LockedHomeCFrame.Position).Magnitude > 60 then
-                                    HRP.CFrame = prompt.Parent.CFrame * CFrame.new(0, 2, 0)
-                                    task.wait(0.2)
-                                    fireproximityprompt(prompt)
-                                    task.wait(0.2)
-                                    HRP.CFrame = LockedHomeCFrame
-                                    targetFound = true
-                                    break 
-                                end
-                            end
-                        end
-                    end
-                    if targetFound then break end
-                end
-            end)
-        end
-
-        if Flags.AutoFarm and HRP and LockedHomeCFrame then
-            pcall(function()
-                for _, obj in ipairs(Workspace:GetChildren()) do
-                    if string.find(string.lower(obj.Name), "plot") or string.find(string.lower(obj.Name), "garden") then
-                        for _, prompt in ipairs(obj:GetDescendants()) do
-                            if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), "harvest") then
-                                if (prompt.Parent.Position - LockedHomeCFrame.Position).Magnitude <= 60 then
-                                    fireproximityprompt(prompt)
-                                end
+                    
+                    -- Event Sniper Filter (Moons, Meteors, Golden, Rainbow, Mega, Ghosts)
+                    if Flags.EventSniper then
+                        for _, term in pairs(SpecialTargets) do
+                            if string.find(pName, term) then
+                                FirePrompt(obj)
                             end
                         end
                     end
                 end
-            end)
-        end
-        task.wait(0.4)
+            end
+        end)
     end
 end)
 
--- --- VISUAL ENGINE (VIBRANT COLOR SCHEME) ---
+-- --- NIGHT STEAL SYSTEM ---
+task.spawn(function()
+    while true do
+        task.wait(0.4)
+        if Flags.NightSteal and HRP then
+            pcall(function()
+                for _, plot in pairs(Workspace:GetChildren()) do
+                    if string.find(string.lower(plot.Name), "plot") or string.find(string.lower(plot.Name), "garden") then
+                        for _, p in pairs(plot:GetDescendants()) do
+                            if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText), "harvest") then
+                                HRP.CFrame = p.Parent.CFrame
+                                task.wait(0.15)
+                                FirePrompt(p)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- --- VISUAL ENGINE (VIBRANT GLOW RGB NEON PANEL) ---
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 430, 0, 340)
-MainFrame.Position = UDim2.new(0.5, -215, 0.5, -170)
+MainFrame.Size = UDim2.new(0, 430, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -215, 0.5, -180)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
+MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
 local FrameGlow = Instance.new("Frame", MainFrame)
@@ -155,55 +162,86 @@ FrameGlow.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
 FrameGlow.ZIndex = 0
 Instance.new("UICorner", FrameGlow).CornerRadius = UDim.new(0, 10)
 
-local Scroll = Instance.new("ScrollingFrame", MainFrame)
-Scroll.Size = UDim2.new(0.94, 0, 0.62, 0)
-Scroll.Position = UDim2.new(0.03, 0, 0.35, 0)
-Scroll.CanvasSize = UDim2.new(0, 0, 4.2, 0)
-Scroll.BackgroundTransparency = 1
-Scroll.ScrollBarThickness = 3
+-- Top Stats & Clock Area
+local TopBar = Instance.new("TextLabel", MainFrame)
+TopBar.Size = UDim2.new(0.92, 0, 0, 40)
+TopBar.Position = UDim2.new(0.04, 0, 0.03, 0)
+TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+TopBar.TextColor3 = Color3.fromRGB(0, 255, 127)
+TopBar.Font = Enum.Font.Code
+TopBar.TextSize = 13
+Instance.new("UICorner", TopBar)
 
-local PlayerInput = Instance.new("TextBox", MainFrame)
-PlayerInput.Size = UDim2.new(0.45, 0, 0, 35)
-PlayerInput.Position = UDim2.new(0.04, 0, 0.22, 0)
-PlayerInput.PlaceholderText = "Target Username..."
-PlayerInput.Text = ""
-PlayerInput.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-PlayerInput.TextColor3 = Color3.new(1, 1, 1)
-PlayerInput.Font = Enum.Font.SourceSansBold
-Instance.new("UICorner", PlayerInput)
-
-PlayerInput:GetPropertyChangedSignal("Text"):Connect(function()
-    local text = string.lower(PlayerInput.Text)
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and string.find(string.lower(p.Name), text) then
-            FlingTargetName = p.Name
-            break
-        end
+task.spawn(function()
+    while true do
+        TopBar.Text = " MVX ENGINE V40 | SERVER CLOCK: " .. string.format("%.2f", Lighting.ClockTime)
+        task.wait(0.5)
     end
 end)
 
+-- Player Dynamic Scrolling Selection Frame
+local PlayerScroll = Instance.new("ScrollingFrame", MainFrame)
+PlayerScroll.Size = UDim2.new(0.45, 0, 0, 100)
+PlayerScroll.Position = UDim2.new(0.04, 0, 0.16, 0)
+PlayerScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+PlayerScroll.ScrollBarThickness = 3
+local UIList = Instance.new("UIListLayout", PlayerScroll)
+UIList.SortOrder = Enum.SortOrder.Name
+
+local SelectedLabel = Instance.new("TextLabel", MainFrame)
+SelectedLabel.Size = UDim2.new(0.43, 0, 0, 25)
+SelectedLabel.Position = UDim2.new(0.53, 0, 0.16, 0)
+SelectedLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+SelectedLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+SelectedLabel.Font = Enum.Font.SourceSansBold
+SelectedLabel.Text = "Target: None"
+Instance.new("UICorner", SelectedLabel)
+
+local function UpdatePlayerList()
+    PlayerScroll:ClearAllChildren()
+    Instance.new("UIListLayout", PlayerScroll).SortOrder = Enum.SortOrder.Name
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local pBtn = Instance.new("TextButton", PlayerScroll)
+            pBtn.Size = UDim2.new(1, 0, 0, 25)
+            pBtn.Text = p.Name
+            pBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            pBtn.TextColor3 = Color3.new(1, 1, 1)
+            pBtn.Font = Enum.Font.SourceSans
+            pBtn.TextSize = 12
+            
+            pBtn.MouseButton1Down:Connect(function()
+                FlingTargetName = p.Name
+                SelectedLabel.Text = "Target: " .. p.Name
+            end)
+        end
+    end
+end
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
+UpdatePlayerList()
+
 local FlingBtn = Instance.new("TextButton", MainFrame)
-FlingBtn.Size = UDim2.new(0.43, 0, 0, 35)
-FlingBtn.Position = UDim2.new(0.53, 0, 0.22, 0)
-FlingBtn.Text = "💥 FLING PLAYER"
+FlingBtn.Size = UDim2.new(0.43, 0, 0, 65)
+FlingBtn.Position = UDim2.new(0.53, 0, 0.25, 0)
+FlingBtn.Text = "💥 FLING TARGET"
 FlingBtn.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
 FlingBtn.TextColor3 = Color3.new(1, 1, 1)
 FlingBtn.Font = Enum.Font.SourceSansBold
 Instance.new("UICorner", FlingBtn)
 FlingBtn.MouseButton1Down:Connect(ExecuteTargetFling)
 
-local TopTimerBar = Instance.new("TextLabel", MainFrame)
-TopTimerBar.Size = UDim2.new(0.92, 0, 0, 45)
-TopTimerBar.Position = UDim2.new(0.04, 0, 0.03, 0)
-TopTimerBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-TopTimerBar.TextColor3 = Color3.fromRGB(0, 255, 127)
-TopTimerBar.Font = Enum.Font.Code
-TopTimerBar.TextSize = 12
-Instance.new("UICorner", TopTimerBar)
+-- Main Option Scrolling Frame
+local Scroll = Instance.new("ScrollingFrame", MainFrame)
+Scroll.Size = UDim2.new(0.94, 0, 0.52, 0)
+Scroll.Position = UDim2.new(0.03, 0, 0.45, 0)
+Scroll.CanvasSize = UDim2.new(0, 0, 3.5, 0)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 3
 
 local function AddMenuButton(text, pos, flagKey, bgCol)
     local btn = Instance.new("TextButton", Scroll)
-    btn.Size = UDim2.new(0.92, 0, 0, 38)
+    btn.Size = UDim2.new(0.92, 0, 0, 36)
     btn.Position = pos
     btn.Text = text
     btn.BackgroundColor3 = bgCol
@@ -212,16 +250,15 @@ local function AddMenuButton(text, pos, flagKey, bgCol)
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Down:Connect(function()
-        if flagKey == "AutoFarm" and not Flags.AutoFarm and HRP then LockedHomeCFrame = HRP.CFrame end
         Flags[flagKey] = not Flags[flagKey]
-        btn.TextSize = Flags[flagKey] and 16 or 14
+        btn.BackgroundColor3 = Flags[flagKey] and Color3.fromRGB(0, 200, 0) or bgCol
     end)
 end
 
 local function CreateSelector(label, items, pos, bgCol, callback)
     local index = 1
     local btn = Instance.new("TextButton", Scroll)
-    btn.Size = UDim2.new(0.92, 0, 0, 38)
+    btn.Size = UDim2.new(0.92, 0, 0, 36)
     btn.Position = pos
     btn.Text = label .. ": " .. string.upper(items[1])
     btn.BackgroundColor3 = bgCol
@@ -236,20 +273,19 @@ local function CreateSelector(label, items, pos, bgCol, callback)
     end)
 end
 
--- --- COLOR CODED RENDER LIST ---
-CreateSelector("🌾 SEED SELECT", {"bamboo", "carrot", "strawberry", "ghost"}, UDim2.new(0.04, 0, 0, 0), Color3.fromRGB(30, 144, 255), function(v) TargetSeed = v end)
-CreateSelector("🐾 PET SELECT", {"frog", "bunny", "owl", "deer", "bee"}, UDim2.new(0.04, 0, 0, 42), Color3.fromRGB(147, 112, 219), function(v) TargetPet = v end)
+-- --- ARRANGED LIST COMPONENTS ---
+CreateSelector("🌾 CHOOSE SEED PACK", {"bamboo", "carrot", "strawberry", "ghost"}, UDim2.new(0.04, 0, 0, 0), Color3.fromRGB(30, 144, 255), function(v) TargetSeed = v end)
+AddMenuButton("🛒 AUTO BUY SEEDS", UDim2.new(0.04, 0, 0, 42), "AutoBuy", Color3.fromRGB(0, 128, 128))
+AddMenuButton("🌙 NIGHT STEAL ENGINE", UDim2.new(0.04, 0, 0, 84), "NightSteal", Color3.fromRGB(199, 21, 133))
+AddMenuButton("⚡ EVENT & MOON SNIPER", UDim2.new(0.04, 0, 0, 126), "EventSniper", Color3.fromRGB(218, 165, 32))
+AddMenuButton("📈 ENGINE FPS BOOST", UDim2.new(0.04, 0, 0, 168), "FPSBoost", Color3.fromRGB(46, 139, 87))
+AddMenuButton("⚡ TOXIC WALK SPEED (70)", UDim2.new(0.04, 0, 0, 210), "SpeedToggle", Color3.fromRGB(75, 0, 130))
+AddMenuButton("👻 NO COLLISION (NOCLIP)", UDim2.new(0.04, 0, 0, 252), "NoClip", Color3.fromRGB(105, 105, 105))
+AddMenuButton("🦘 UNLIMITED JUMP", UDim2.new(0.04, 0, 0, 294), "InfJump", Color3.fromRGB(70, 130, 180))
 
-AddMenuButton("🐾 AUTO BUY LOBBY PETS", UDim2.new(0.04, 0, 0, 84), "AutoBuyPets", Color3.fromRGB(75, 0, 130))
-AddMenuButton("🛒 AUTO BUY SEED PACKS", UDim2.new(0.04, 0, 0, 126), "AutoBuy", Color3.fromRGB(0, 128, 128))
-AddMenuButton("📈 ENGAGE FPS BOOST", UDim2.new(0.04, 0, 0, 168), "FPSBoost", Color3.fromRGB(46, 139, 87))
-AddMenuButton("🌙 NIGHT STEALER ENGINE", UDim2.new(0.04, 0, 0, 210), "NightSteal", Color3.fromRGB(199, 21, 133))
-AddMenuButton("🌾 AUTO HARVEST PLOT", UDim2.new(0.04, 0, 0, 252), "AutoFarm", Color3.fromRGB(210, 105, 30))
-AddMenuButton("⚡ EVENT ITEM SNIPER", UDim2.new(0.04, 0, 0, 294), "EventCollector", Color3.fromRGB(218, 165, 32))
-
--- --- MASTER COMPACT TOGGLE BUBBLE ---
+-- Toggle Bubble
 local ToggleButton = Instance.new("TextButton", ScreenGui)
-ToggleButton.Size = UDim2.new(0, 52, 0, 52)
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
 ToggleButton.Position = UDim2.new(0.02, 0, 0.4, 0)
 ToggleButton.Text = "MVX"
 ToggleButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
