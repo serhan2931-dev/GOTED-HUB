@@ -1,22 +1,24 @@
--- [[ ECHO SCRIPTER V26 - DROP-DOWN SELECTION & TIMERS BUILD ]] --
+-- [[ MVX HUB - V32 NEON EDITION + FLING COMPONENT ]] --
 
 local Flags = {
-    AutoFarm = false, AutoWater = false, AutoBuy = false, AutoReplant = false,
-    EventCollector = false, SpeedToggle = false, NoClip = false, FPSBoost = false, 
-    NightSteal = false, AutoBuyPets = false
+    AutoFarm = false, AutoBuy = false, EventCollector = false, 
+    SpeedToggle = false, NoClip = false, FPSBoost = false, 
+    NightSteal = false, AutoBuyPets = false, FlingEngine = false
 }
 
 local CustomSpeed = 45
-local TargetSeed = "bamboo"  -- Default smart-farm target
-local TargetEgg = "egg"      -- Default gacha target
+local TargetSeed = "bamboo"
+local TargetPet = "bunny"
+local FlingTargetName = ""
+local CurrentTimeDisplay = "Calibrating..."
+local LockedHomeCFrame = nil 
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
-local Terrain = Workspace:FindFirstChildWhichIsA("Terrain")
 
-local Character, HRP, LockedHomeCFrame
+local Character, HRP
 local function UpdateCache(char)
     Character = char
     HRP = char:WaitForChild("HumanoidRootPart", 5)
@@ -29,28 +31,51 @@ local function IsNight()
     return ct >= 18 or ct <= 6
 end
 
--- --- FORCED HIGH PERFORMANCE MODE ---
-local function ApplyFPSBoost()
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-    Lighting.GlobalShadows = false
-    Lighting.FogEnd = 9e9
-    if Terrain then Terrain.WaterWaveSize = 0 Terrain.WaterDetail = Enum.WaterDetailSetting.Low end
-    for _, v in ipairs(Workspace:GetDescendants()) do
-        if v:IsA("BasePart") and not v:IsA("MeshPart") then v.Material = Enum.Material.SmoothPlastic v.Reflectance = 0
-        elseif v:IsA("Texture") or v:IsA("Decal") then v:Destroy() end
+-- --- EXPERIMENTAL PHYS-FLING SYSTEM ---
+local function ExecuteTargetFling()
+    if not HRP or FlingTargetName == "" then return end
+    local targetPlayer = Players:FindFirstChild(FlingTargetName)
+    if not targetPlayer or not targetPlayer.Character then return end
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+    
+    local oldCFrame = HRP.CFrame
+    local bV = Instance.new("BodyVelocity")
+    bV.MaxForce = Vector3.new(1, 1, 1) * math.huge
+    bV.Velocity = Vector3.new(99999, 99999, 99999)
+    bV.Parent = HRP
+    
+    local bAV = Instance.new("BodyAngularVelocity")
+    bAV.MaxTorque = Vector3.new(1, 1, 1) * math.huge
+    bAV.AngularVelocity = Vector3.new(99999, 99999, 99999)
+    bAV.Parent = HRP
+    
+    -- Target Collision Sequence
+    for i = 1, 35 do
+        if not targetHRP or not HRP then break end
+        HRP.CFrame = targetHRP.CFrame * CFrame.Angles(math.rad(math.random(-180, 180)), math.rad(math.random(-180, 180)), 0)
+        task.wait(0.02)
     end
+    
+    -- Cleanup physical vectors & safely return
+    bV:Destroy()
+    bAV:Destroy()
+    if LockedHomeCFrame then HRP.CFrame = LockedHomeCFrame else HRP.CFrame = oldCFrame end
 end
 
--- --- AUTOMATION LOGIC ENGINES ---
+-- --- AUTOMATION ENGINES LOOP ---
 task.spawn(function()
     while true do
-        -- 1. Targeted Pet/Egg Buyer
-        if Flags.AutoBuyPets then
+        if Flags.AutoBuyPets and HRP then
             pcall(function()
                 for _, obj in ipairs(Workspace:GetDescendants()) do
                     if obj:IsA("ProximityPrompt") then
-                        local nameLower = string.lower(obj.Parent.Name)
-                        if string.find(nameLower, TargetEgg) or string.find(string.lower(obj.ObjectText or ""), TargetEgg) then
+                        local pName = string.lower(obj.Parent.Name)
+                        if string.find(pName, TargetPet) then
+                            if (HRP.Position - obj.Parent.Position).Magnitude > 10 then
+                                HRP.CFrame = obj.Parent.CFrame * CFrame.new(0, 2, 0)
+                                task.wait(0.12)
+                            end
                             fireproximityprompt(obj)
                         end
                     end
@@ -58,13 +83,11 @@ task.spawn(function()
             end)
         end
 
-        -- 2. Targeted Seed Pack Buyer
         if Flags.AutoBuy then
             pcall(function()
                 for _, obj in ipairs(Workspace:GetDescendants()) do
                     if obj:IsA("ProximityPrompt") then
-                        local nameLower = string.lower(obj.Parent.Name)
-                        if string.find(nameLower, TargetSeed) and (string.find(nameLower, "seed") or string.find(nameLower, "shop")) then
+                        if string.find(string.lower(obj.Parent.Name), TargetSeed) then
                             fireproximityprompt(obj)
                         end
                     end
@@ -72,43 +95,38 @@ task.spawn(function()
             end)
         end
 
-        -- 3. Home Plot Harvest & Utilities
-        if HRP and LockedHomeCFrame then
+        if Flags.NightSteal and IsNight() and HRP and LockedHomeCFrame then
             pcall(function()
+                local targetFound = false
                 for _, obj in ipairs(Workspace:GetChildren()) do
                     if string.find(string.lower(obj.Name), "plot") or string.find(string.lower(obj.Name), "garden") then
                         for _, prompt in ipairs(obj:GetDescendants()) do
-                            if prompt:IsA("ProximityPrompt") then
-                                local distance = (prompt.Parent.Position - LockedHomeCFrame.Position).Magnitude
-                                if distance <= 60 then
-                                    if Flags.AutoFarm and string.find(string.lower(prompt.Parent.Name), "harvest") then
-                                        fireproximityprompt(prompt)
-                                    elseif Flags.AutoWater and string.find(string.lower(prompt.Name), "water") then
-                                        fireproximityprompt(prompt)
-                                    elseif Flags.AutoReplant and string.find(string.lower(prompt.Name), "plant") then
-                                        fireproximityprompt(prompt)
-                                    end
+                            if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), "harvest") then
+                                if (prompt.Parent.Position - LockedHomeCFrame.Position).Magnitude > 60 then
+                                    HRP.CFrame = prompt.Parent.CFrame * CFrame.new(0, 2, 0)
+                                    task.wait(0.2)
+                                    fireproximityprompt(prompt)
+                                    task.wait(0.2)
+                                    HRP.CFrame = LockedHomeCFrame
+                                    targetFound = true
+                                    break 
                                 end
                             end
                         end
                     end
+                    if targetFound then break end
                 end
             end)
         end
 
-        -- 4. Protected Night Stealer
-        if Flags.NightSteal and IsNight() and HRP then
+        if Flags.AutoFarm and HRP and LockedHomeCFrame then
             pcall(function()
                 for _, obj in ipairs(Workspace:GetChildren()) do
                     if string.find(string.lower(obj.Name), "plot") or string.find(string.lower(obj.Name), "garden") then
                         for _, prompt in ipairs(obj:GetDescendants()) do
                             if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), "harvest") then
-                                local distance = LockedHomeCFrame and (prompt.Parent.Position - LockedHomeCFrame.Position).Magnitude or 999
-                                if not LockedHomeCFrame or distance > 60 then
-                                    HRP.CFrame = prompt.Parent.CFrame * CFrame.new(0, 2, 0)
-                                    task.wait(0.12)
+                                if (prompt.Parent.Position - LockedHomeCFrame.Position).Magnitude <= 60 then
                                     fireproximityprompt(prompt)
-                                    task.wait(0.12)
                                 end
                             end
                         end
@@ -120,70 +138,75 @@ task.spawn(function()
     end
 end)
 
--- --- CHARACTER TRACKING MOTOR ---
-game:GetService("RunService").Heartbeat:Connect(function()
-    pcall(function()
-        if Character and Character:FindFirstChild("Humanoid") then
-            if Flags.SpeedToggle then Character.Humanoid.WalkSpeed = CustomSpeed end
-            if Flags.NoClip then
-                for _, p in ipairs(Character:GetChildren()) do if p:IsA("BasePart") then p.CanCollide = false end end
-            end
-        end
-    end)
-end)
-
--- --- MASTER SCROLLING GUI LAYOUT ---
+-- --- VISUAL ENGINE (VIBRANT COLOR SCHEME) ---
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 420, 0, 310)
-MainFrame.Position = UDim2.new(0.5, -210, 0.5, -155)
-MainFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+MainFrame.Size = UDim2.new(0, 430, 0, 340)
+MainFrame.Position = UDim2.new(0.5, -215, 0.5, -170)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+local FrameGlow = Instance.new("Frame", MainFrame)
+FrameGlow.Size = UDim2.new(1.02, 0, 1.02, 0)
+FrameGlow.Position = UDim2.new(-0.01, 0, -0.01, 0)
+FrameGlow.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+FrameGlow.ZIndex = 0
+Instance.new("UICorner", FrameGlow).CornerRadius = UDim.new(0, 10)
 
 local Scroll = Instance.new("ScrollingFrame", MainFrame)
-Scroll.Size = UDim2.new(0.92, 0, 0.65, 0)
-Scroll.Position = UDim2.new(0.04, 0, 0.22, 0)
-Scroll.CanvasSize = UDim2.new(0, 0, 4.8, 0)
+Scroll.Size = UDim2.new(0.94, 0, 0.62, 0)
+Scroll.Position = UDim2.new(0.03, 0, 0.35, 0)
+Scroll.CanvasSize = UDim2.new(0, 0, 4.2, 0)
 Scroll.BackgroundTransparency = 1
-Scroll.ScrollBarThickness = 4
+Scroll.ScrollBarThickness = 3
 
--- --- TIME & PHASES PANEL ---
-local TopTimerBar = Instance.new("TextLabel", MainFrame)
-TopTimerBar.Size = UDim2.new(0.92, 0, 0, 45)
-TopTimerBar.Position = UDim2.new(0.04, 0, 0.03, 0)
-TopTimerBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-TopTimerBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-TopTimerBar.Font = Enum.Font.Code
-TopTimerBar.TextSize = 13
-Instance.new("UICorner", TopTimerBar)
+local PlayerInput = Instance.new("TextBox", MainFrame)
+PlayerInput.Size = UDim2.new(0.45, 0, 0, 35)
+PlayerInput.Position = UDim2.new(0.04, 0, 0.22, 0)
+PlayerInput.PlaceholderText = "Target Username..."
+PlayerInput.Text = ""
+PlayerInput.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+PlayerInput.TextColor3 = Color3.new(1, 1, 1)
+PlayerInput.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", PlayerInput)
 
-task.spawn(function()
-    while true do
-        pcall(function()
-            local rawTime = Lighting.ClockTime
-            local displayHours = math.floor(rawTime) % 12
-            if displayHours == 0 then displayHours = 12 end
-            local minutes = math.floor((rawTime - math.floor(rawTime)) * 60)
-            local ampm = rawTime >= 12 and "PM" or "AM"
-            
-            -- Dynamic Countdown Calculations based on Sky Position
-            local untilNight = IsNight() and 0 or math.floor((18 - rawTime) * 50)
-            local untilDay = not IsNight() and 0 or (rawTime > 18 and math.floor((30 - rawTime) * 50) or math.floor((6 - rawTime) * 50))
-            local cycleTimer = IsNight() and "☀️ Day in: " .. untilDay .. "s" or "🌙 Night in: " .. untilNight .. "s"
-            
-            TopTimerBar.Text = string.format(" CLOCK: %02d:%02d %s | %s\n STATUS: %s", displayHours, minutes, ampm, cycleTimer, LockedHomeCFrame and "🔒 PLOT SECURED" or "⚠️ HARVEST HOME TO LOCK PLOT")
-        end)
-        task.wait(0.5)
+PlayerInput:GetPropertyChangedSignal("Text"):Connect(function()
+    local text = string.lower(PlayerInput.Text)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and string.find(string.lower(p.Name), text) then
+            FlingTargetName = p.Name
+            break
+        end
     end
 end)
 
--- --- SELECTION TOGGLE BUTTON BUILDER ---
-local function AddMenuButton(text, pos, flagKey, callback)
+local FlingBtn = Instance.new("TextButton", MainFrame)
+FlingBtn.Size = UDim2.new(0.43, 0, 0, 35)
+FlingBtn.Position = UDim2.new(0.53, 0, 0.22, 0)
+FlingBtn.Text = "💥 FLING PLAYER"
+FlingBtn.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+FlingBtn.TextColor3 = Color3.new(1, 1, 1)
+FlingBtn.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", FlingBtn)
+FlingBtn.MouseButton1Down:Connect(ExecuteTargetFling)
+
+local TopTimerBar = Instance.new("TextLabel", MainFrame)
+TopTimerBar.Size = UDim2.new(0.92, 0, 0, 45)
+TopTimerBar.Position = UDim2.new(0.04, 0, 0.03, 0)
+TopTimerBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+TopTimerBar.TextColor3 = Color3.fromRGB(0, 255, 127)
+TopTimerBar.Font = Enum.Font.Code
+TopTimerBar.TextSize = 12
+Instance.new("UICorner", TopTimerBar)
+
+local function AddMenuButton(text, pos, flagKey, bgCol)
     local btn = Instance.new("TextButton", Scroll)
-    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.Size = UDim2.new(0.92, 0, 0, 38)
     btn.Position = pos
     btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.BackgroundColor3 = bgCol
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SourceSansBold
     Instance.new("UICorner", btn)
@@ -191,19 +214,17 @@ local function AddMenuButton(text, pos, flagKey, callback)
     btn.MouseButton1Down:Connect(function()
         if flagKey == "AutoFarm" and not Flags.AutoFarm and HRP then LockedHomeCFrame = HRP.CFrame end
         Flags[flagKey] = not Flags[flagKey]
-        btn.BackgroundColor3 = Flags[flagKey] and Color3.fromRGB(46, 139, 87) or Color3.fromRGB(45, 45, 45)
-        if callback and Flags[flagKey] then callback() end
+        btn.TextSize = Flags[flagKey] and 16 or 14
     end)
 end
 
--- --- OPTIONS DROP-DOWNS CREATOR ---
-local function CreateSelector(label, items, initial, pos, callback)
+local function CreateSelector(label, items, pos, bgCol, callback)
     local index = 1
     local btn = Instance.new("TextButton", Scroll)
-    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.Size = UDim2.new(0.92, 0, 0, 38)
     btn.Position = pos
-    btn.Text = label .. ": " .. string.upper(initial)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 65, 95)
+    btn.Text = label .. ": " .. string.upper(items[1])
+    btn.BackgroundColor3 = bgCol
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SourceSansBold
     Instance.new("UICorner", btn)
@@ -215,25 +236,24 @@ local function CreateSelector(label, items, initial, pos, callback)
     end)
 end
 
--- RENDER ALL CUSTOM DROPDOWNS & CORE ENGINES
-CreateSelector("🌾 CHOOSE SEED TO BUY", {"bamboo", "carrot", "strawberry", "ghost"}, "bamboo", UDim2.new(0.05, 0, 0, 0), function(val) TargetSeed = val end)
-CreateSelector("🐾 CHOOSE EGG TO BUY", {"egg", "spooky", "gacha", "rare"}, "egg", UDim2.new(0.05, 0, 0, 45), function(val) TargetEgg = val end)
+-- --- COLOR CODED RENDER LIST ---
+CreateSelector("🌾 SEED SELECT", {"bamboo", "carrot", "strawberry", "ghost"}, UDim2.new(0.04, 0, 0, 0), Color3.fromRGB(30, 144, 255), function(v) TargetSeed = v end)
+CreateSelector("🐾 PET SELECT", {"frog", "bunny", "owl", "deer", "bee"}, UDim2.new(0.04, 0, 0, 42), Color3.fromRGB(147, 112, 219), function(v) TargetPet = v end)
 
-AddMenuButton("🐾 TOGGLE AUTO BUY PETS", UDim2.new(0.05, 0, 0, 90), "AutoBuyPets")
-AddMenuButton("🛒 TOGGLE AUTO BUY SEEDS", UDim2.new(0.05, 0, 0, 135), "AutoBuy")
-AddMenuButton("📈 FORCED FPS BOOST", UDim2.new(0.05, 0, 0, 180), "FPSBoost", ApplyFPSBoost)
-AddMenuButton("🌙 NIGHT STEALER (AWAY)", UDim2.new(0.05, 0, 0, 225), "NightSteal")
-AddMenuButton("🌾 AUTO HARVEST (HOME)", UDim2.new(0.05, 0, 0, 270), "AutoFarm")
-AddMenuButton("💧 AUTO WATER PLANTS", UDim2.new(0.05, 0, 0, 315), "AutoWater")
-AddMenuButton("🌱 AUTO REPLANT SEEDS", UDim2.new(0.05, 0, 0, 360), "AutoReplant")
-AddMenuButton("⚡ EVENT SNIPER", UDim2.new(0.05, 0, 0, 405), "EventCollector")
-AddMenuButton("👟 SPEED HACK (45)", UDim2.new(0.05, 0, 0, 450), "SpeedToggle")
-AddMenuButton("🧱 NO-CLIP MODE", UDim2.new(0.05, 0, 0, 495), "NoClip")
+AddMenuButton("🐾 AUTO BUY LOBBY PETS", UDim2.new(0.04, 0, 0, 84), "AutoBuyPets", Color3.fromRGB(75, 0, 130))
+AddMenuButton("🛒 AUTO BUY SEED PACKS", UDim2.new(0.04, 0, 0, 126), "AutoBuy", Color3.fromRGB(0, 128, 128))
+AddMenuButton("📈 ENGAGE FPS BOOST", UDim2.new(0.04, 0, 0, 168), "FPSBoost", Color3.fromRGB(46, 139, 87))
+AddMenuButton("🌙 NIGHT STEALER ENGINE", UDim2.new(0.04, 0, 0, 210), "NightSteal", Color3.fromRGB(199, 21, 133))
+AddMenuButton("🌾 AUTO HARVEST PLOT", UDim2.new(0.04, 0, 0, 252), "AutoFarm", Color3.fromRGB(210, 105, 30))
+AddMenuButton("⚡ EVENT ITEM SNIPER", UDim2.new(0.04, 0, 0, 294), "EventCollector", Color3.fromRGB(218, 165, 32))
 
+-- --- MASTER COMPACT TOGGLE BUBBLE ---
 local ToggleButton = Instance.new("TextButton", ScreenGui)
-ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Size = UDim2.new(0, 52, 0, 52)
 ToggleButton.Position = UDim2.new(0.02, 0, 0.4, 0)
-ToggleButton.Text = "ECHO"
+ToggleButton.Text = "MVX"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
 ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.Font = Enum.Font.SourceSansBold
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(1, 0)
 ToggleButton.MouseButton1Down:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
