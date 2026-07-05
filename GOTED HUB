@@ -1,4 +1,4 @@
--- [[ MVX HUB - V41 FIXED MASTER EDITION ]] --
+-- [[ MVX HUB - V43 PERFECTED GAME BUILD ]] --
 
 local Flags = {
     AutoBuy = false, NightSteal = false, SpeedToggle = false, 
@@ -8,7 +8,7 @@ local Flags = {
 
 local TargetSeed = "bamboo" 
 local FlingTargetName = ""
-local SpecialTargets = {"golden", "rainbow", "mega", "moon"}
+local SpecialTargets = {"gold seed", "rainbow seed", "mega seed", "golden seed"}
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -16,6 +16,7 @@ local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local Character, HRP
 local function UpdateCache(char)
@@ -25,17 +26,99 @@ end
 LocalPlayer.CharacterAdded:Connect(UpdateCache)
 if LocalPlayer.Character then UpdateCache(LocalPlayer.Character) end
 
--- --- UTILS ---
+-- --- UTILITY HOOKS ---
 local function FirePrompt(prompt)
-    if prompt:IsA("ProximityPrompt") then fireproximityprompt(prompt) end
+    if prompt:IsA("ProximityPrompt") then
+        fireproximityprompt(prompt)
+    end
 end
 
--- --- MOVEMENT ENGINE ---
+-- --- DYNAMIC ENVIRONMENT & WEATHER TRACKER ---
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local TrackerFrame = Instance.new("Frame", ScreenGui)
+TrackerFrame.Size = UDim2.new(0, 360, 0, 45)
+TrackerFrame.Position = UDim2.new(0.5, -180, 0, 10)
+TrackerFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+TrackerFrame.BorderSizePixel = 0
+Instance.new("UICorner", TrackerFrame).CornerRadius = UDim.new(0, 6)
+
+local TrackerGlow = Instance.new("Frame", TrackerFrame)
+TrackerGlow.Size = UDim2.new(1.02, 0, 1.05, 0)
+TrackerGlow.Position = UDim2.new(-0.01, 0, -0.02, 0)
+TrackerGlow.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+TrackerGlow.ZIndex = 0
+Instance.new("UICorner", TrackerGlow).CornerRadius = UDim.new(0, 7)
+
+local MoonIcon = Instance.new("TextLabel", TrackerFrame)
+MoonIcon.Size = UDim2.new(0.15, 0, 1, 0)
+MoonIcon.Position = UDim2.new(0.02, 0, 0, 0)
+MoonIcon.BackgroundTransparency = 1
+MoonIcon.Font = Enum.Font.Code
+MoonIcon.TextSize = 22
+MoonIcon.Text = "🌙"
+MoonIcon.TextColor3 = Color3.fromRGB(0, 0, 0)
+
+local StatusText = Instance.new("TextLabel", TrackerFrame)
+StatusText.Size = UDim2.new(0.8, 0, 1, 0)
+StatusText.Position = UDim2.new(0.18, 0, 0, 0)
+StatusText.BackgroundTransparency = 1
+StatusText.Font = Enum.Font.Code
+StatusText.TextSize = 13
+StatusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusText.TextXAlignment = Enum.TextXAlignment.Left
+
+task.spawn(function()
+    while true do
+        pcall(function()
+            local weatherAttr = Lighting:GetAttribute("Weather") or Workspace:GetAttribute("Weather") or "Normal"
+            local clock = Lighting.ClockTime
+            local isNight = (clock >= 18 or clock <= 6)
+            
+            if isNight then
+                local sW = string.lower(tostring(weatherAttr))
+                if string.find(sW, "blood") then
+                    MoonIcon.Text = "🌙"
+                    MoonIcon.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    StatusText.Text = "EVENT: BLOOD MOON (🔴 RED)\nPHASE: MUTATION WINDOW"
+                elseif string.find(sW, "gold") or string.find(sW, "midas") then
+                    MoonIcon.Text = "🌙"
+                    MoonIcon.TextColor3 = Color3.fromRGB(255, 215, 0)
+                    StatusText.Text = "EVENT: GOLD MOON (🟡 GOLDEN)\nSNIPING: GOLD SEEDS ACTIVE"
+                elseif string.find(sW, "rainbow") then
+                    MoonIcon.Text = "🌙"
+                    MoonIcon.TextColor3 = Color3.fromRGB(255, 105, 180)
+                    StatusText.Text = "EVENT: RAINBOW MOON (🌈 RAINBOW)\nSNIPING: RAINBOW SEEDS ACTIVE"
+                elseif string.find(sW, "mega") then
+                    MoonIcon.Text = "🌙"
+                    MoonIcon.TextColor3 = Color3.fromRGB(0, 255, 255)
+                    StatusText.Text = "EVENT: MEGA MOON (🔵 MEGA)\nSNIPING: MEGA SEEDS ACTIVE"
+                else
+                    MoonIcon.Text = "🌙"
+                    MoonIcon.TextColor3 = Color3.fromRGB(0, 0, 0)
+                    StatusText.Text = "CYCLE: STANDARD NIGHT (🌙 BLACK)\nSTATUS: ALL CLEAR"
+                end
+            else
+                MoonIcon.Text = "☀️"
+                MoonIcon.TextColor3 = Color3.fromRGB(255, 223, 0)
+                if weatherAttr ~= "Normal" then
+                    StatusText.Text = "DAYTIME EVENT: " .. string.upper(tostring(weatherAttr)) .. "\nCLOCK: " .. string.format("%.2f", clock)
+                else
+                    StatusText.Text = "CYCLE: DAYTIME (GROWING)\nCLOCK: " .. string.format("%.2f", clock)
+                end
+            end
+        end)
+        task.wait(0.5)
+    end
+end)
+
+-- --- MOVEMENT & NOCLIP ENGINE ---
 RunService.Heartbeat:Connect(function()
     if Character and HRP and Character:FindFirstChild("Humanoid") then
         if Flags.SpeedToggle then Character.Humanoid.WalkSpeed = 70 end
         if Flags.NoClip then
-            for _, p in pairs(Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end
+            for _, p in pairs(Character:GetDescendants()) do 
+                if p:IsA("BasePart") then p.CanCollide = false end 
+            end
         end
     end
 end)
@@ -46,99 +129,66 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- --- PERFORMANCE ENGINE (FPS BOOST) ---
+-- --- PERFORMANCE OPTIMIZER ---
 local function ApplyFPSBoost()
     settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
     Lighting.GlobalShadows = false
-    Lighting.EnvironmentSpecularScale = 0
-    Workspace.Terrain.WaterWaveSize = 0
     for _, v in pairs(Workspace:GetDescendants()) do
         if v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") then v:Destroy() end
         if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic v.CastShadow = false end
     end
 end
 
--- --- FLING SYSTEM (STABILIZED VELOCITY SPIN) ---
+-- --- COMPACT FLING ENGINE ---
 local function ExecuteTargetFling()
     if not Flags.FlingEngine or not HRP or FlingTargetName == "" then return end
     local targetPlayer = Players:FindFirstChild(FlingTargetName)
-    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local targetHRP = targetPlayer.Character.HumanoidRootPart
+    if not targetPlayer or not targetPlayer.Character then return end
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
     
     local oldCFrame = HRP.CFrame
-    local bV = Instance.new("BodyVelocity", HRP)
-    bV.MaxForce = Vector3.new(4000, 4000, 4000)
-    bV.Velocity = Vector3.new(0, 50, 0)
+    local bV = Instance.new("BodyVelocity")
+    bV.MaxForce = Vector3.new(1, 1, 1) * math.huge
+    bV.Velocity = Vector3.new(50000, 50000, 50000)
+    bV.Parent = HRP
     
-    local bAV = Instance.new("BodyAngularVelocity", HRP)
-    bAV.MaxTorque = Vector3.new(1, 1, 1) * 100000
-    bAV.AngularVelocity = Vector3.new(0, 500, 0) -- High spin frequency
+    local bAV = Instance.new("BodyAngularVelocity")
+    bAV.MaxTorque = Vector3.new(1, 1, 1) * math.huge
+    bAV.AngularVelocity = Vector3.new(50000, 50000, 50000)
+    bAV.Parent = HRP
     
-    for i = 1, 20 do
-        if not Flags.FlingEngine then break end
-        HRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0.5, 0)
-        task.wait(0.05)
+    for i = 1, 40 do
+        if not Flags.FlingEngine or not targetHRP or not HRP then break end
+        HRP.CFrame = targetHRP.CFrame * CFrame.new(math.random(-1, 1), 0, math.random(-1, 1))
+        task.wait(0.02)
     end
-    bV:Destroy() bAV:Destroy()
+    
+    bV:Destroy()
+    bAV:Destroy()
     HRP.CFrame = oldCFrame
 end
 
--- --- AUTOMATION LOOPS ---
+-- --- DYNAMIC SNIPER MECHANIC ---
 task.spawn(function()
     while true do
         task.wait(0.1)
-        pcall(function()
-            if Flags.FPSBoost then ApplyFPSBoost() end
-            
-            for _, obj in pairs(Workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") then
-                    local pName = string.lower(obj.Parent.Name .. obj.ObjectText .. obj.ActionText)
-                    local act = string.lower(obj.ActionText)
-                    
-                    -- Auto Buy / Collection Filter
-                    if Flags.AutoBuy and string.find(pName, string.lower(TargetSeed)) then 
-                        FirePrompt(obj) 
-                    end
-                    
-                    -- Event & Moon Sniper Filter
-                    if Flags.EventSniper then
-                        if string.find(act, "harvest") or string.find(act, "collect") or string.find(act, "claim") or string.find(act, "grab") then
-                            FirePrompt(obj)
-                        else
-                            for _, term in pairs(SpecialTargets) do
-                                if string.find(pName, term) then FirePrompt(obj) end
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- --- ANTI-SELF NIGHT STEAL SYSTEM ---
-task.spawn(function()
-    while true do
-        task.wait(0.4)
-        if Flags.NightSteal and HRP then
+        if Flags.FPSBoost then ApplyFPSBoost() end
+        
+        if Flags.AutoBuy or Flags.EventSniper then
             pcall(function()
-                for _, plot in pairs(Workspace:GetChildren()) do
-                    local plotName = string.lower(plot.Name)
-                    if string.find(plotName, "plot") or string.find(plotName, "garden") then
-                        local isOwnPlot = false
-                        if string.find(plotName, string.lower(LocalPlayer.Name)) or string.find(plotName, string.lower(LocalPlayer.DisplayName)) then
-                            isOwnPlot = true
-                        end
-                        if plot:FindFirstChild("Owner") and plot.Owner.Value == LocalPlayer then
-                            isOwnPlot = true
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") then
+                        local pName = string.lower(obj.Parent.Name .. obj.ObjectText .. obj.ActionText)
+                        
+                        if Flags.AutoBuy and string.find(pName, string.lower(TargetSeed)) then
+                            FirePrompt(obj)
                         end
                         
-                        if not isOwnPlot then
-                            for _, p in pairs(plot:GetDescendants()) do
-                                if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText), "harvest") then
-                                    HRP.CFrame = p.Parent.CFrame
-                                    task.wait(0.15)
-                                    FirePrompt(p)
+                        if Flags.EventSniper then
+                            for _, term in pairs(SpecialTargets) do
+                                if string.find(pName, term) then
+                                    FirePrompt(obj)
                                 end
                             end
                         end
@@ -149,123 +199,169 @@ task.spawn(function()
     end
 end)
 
--- --- VISUAL ENGINE PANEL ---
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size, MainFrame.Position = UDim2.new(0, 430, 0, 360), UDim2.new(0.5, -215, 0.5, -180)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-MainFrame.Active = true MainFrame.Draggable = true
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
-
-local FrameGlow = Instance.new("Frame", MainFrame)
-FrameGlow.Size, FrameGlow.Position = UDim2.new(1.02, 0, 1.02, 0), UDim2.new(-0.01, 0, -0.01, 0)
-FrameGlow.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
-FrameGlow.ZIndex = 0
-Instance.new("UICorner", FrameGlow).CornerRadius = UDim.new(0, 10)
-
-local TopBar = Instance.new("TextLabel", MainFrame)
-TopBar.Size, TopBar.Position = UDim2.new(0.92, 0, 0, 40), UDim2.new(0.04, 0, 0.03, 0)
-TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-TopBar.TextColor3 = Color3.fromRGB(0, 255, 127)
-TopBar.Font, TopBar.TextSize = Enum.Font.Code, 13
-Instance.new("UICorner", TopBar)
-
+-- --- ABSOLUTE STEAL ENGINE WITH CLEAN INTERRUPT ---
 task.spawn(function()
     while true do
-        TopBar.Text = " MVX ENGINE V41 | SERVER CLOCK: " .. string.format("%.2f", Lighting.ClockTime)
-        task.wait(0.5)
+        task.wait(0.25)
+        if Flags.NightSteal and HRP then
+            pcall(function()
+                for _, plot in pairs(Workspace:GetChildren()) do
+                    if not Flags.NightSteal then break end
+                    
+                    local plotName = string.lower(plot.Name)
+                    if string.find(plotName, "plot") or string.find(plotName, "garden") or plot:FindFirstChild("Owner") then
+                        
+                        local isOwnPlot = false
+                        if string.find(plotName, string.lower(LocalPlayer.Name)) or string.find(plotName, string.lower(LocalPlayer.DisplayName)) then
+                            isOwnPlot = true
+                        end
+                        if plot:FindFirstChild("Owner") and plot.Owner.Value == LocalPlayer then
+                            isOwnPlot = true
+                        end
+                        
+                        if not isOwnPlot then
+                            for _, p in pairs(plot:GetDescendants()) do
+                                if not Flags.NightSteal then break end
+                                if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText), "harvest") then
+                                    HRP.CFrame = p.Parent.CFrame
+                                    task.wait(0.12)
+                                    if Flags.NightSteal then FirePrompt(p) end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
     end
 end)
 
--- SCROLLING PLAYER LIST
+-- --- MAIN UI CONTROL INTERFACE ---
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 430, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -215, 0.5, -140)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+local MainGlow = Instance.new("Frame", MainFrame)
+MainGlow.Size = UDim2.new(1.02, 0, 1.02, 0)
+MainGlow.Position = UDim2.new(-0.01, 0, -0.01, 0)
+MainGlow.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+MainGlow.ZIndex = 0
+Instance.new("UICorner", MainGlow).CornerRadius = UDim.new(0, 10)
+
+local Header = Instance.new("TextLabel", MainFrame)
+Header.Size = UDim2.new(0.92, 0, 0, 35)
+Header.Position = UDim2.new(0.04, 0, 0.03, 0)
+Header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Header.TextColor3 = Color3.fromRGB(0, 255, 127)
+Header.Font = Enum.Font.Code
+Header.TextSize = 14
+Header.Text = "MVX MASTER INTERFACE V43"
+Instance.new("UICorner", Header)
+
 local PlayerScroll = Instance.new("ScrollingFrame", MainFrame)
-PlayerScroll.Size, PlayerScroll.Position = UDim2.new(0.45, 0, 0, 100), UDim2.new(0.04, 0, 0.16, 0)
+PlayerScroll.Size = UDim2.new(0.45, 0, 0, 95)
+PlayerScroll.Position = UDim2.new(0.04, 0, 0.15, 0)
 PlayerScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 PlayerScroll.ScrollBarThickness = 3
 local UIList = Instance.new("UIListLayout", PlayerScroll)
 UIList.SortOrder = Enum.SortOrder.Name
-UIList.Padding = UDim.new(0, 5)
-
--- DYNAMIC SCROLL FIX FOR CANVAS SIZE
-UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y)
-end)
 
 local SelectedLabel = Instance.new("TextLabel", MainFrame)
-SelectedLabel.Size, SelectedLabel.Position = UDim2.new(0.43, 0, 0, 25), UDim2.new(0.53, 0, 0.16, 0)
+SelectedLabel.Size = UDim2.new(0.43, 0, 0, 25)
+SelectedLabel.Position = UDim2.new(0.53, 0, 0.15, 0)
 SelectedLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 SelectedLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-SelectedLabel.Font, SelectedLabel.Text = Enum.Font.SourceSansBold, "Target: None"
+SelectedLabel.Font = Enum.Font.SourceSansBold
+SelectedLabel.Text = "Target: None"
 Instance.new("UICorner", SelectedLabel)
 
 local function UpdatePlayerList()
     PlayerScroll:ClearAllChildren()
-    local Layout = Instance.new("UIListLayout", PlayerScroll)
-    Layout.SortOrder, Layout.Padding = Enum.SortOrder.Name, UDim.new(0, 5)
-    
+    Instance.new("UIListLayout", PlayerScroll).SortOrder = Enum.SortOrder.Name
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            local btn = Instance.new("TextButton", PlayerScroll)
-            btn.Size = UDim2.new(1, -10, 0, 25) btn.Text = p.Name
-            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            btn.TextColor3, btn.Font = Color3.new(1, 1, 1), Enum.Font.SourceSans
+            local pBtn = Instance.new("TextButton", PlayerScroll)
+            pBtn.Size = UDim2.new(1, 0, 0, 25)
+            pBtn.Text = p.Name
+            pBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            pBtn.TextColor3 = Color3.new(1, 1, 1)
+            pBtn.Font = Enum.Font.SourceSans
+            pBtn.TextSize = 12
             
-            btn.MouseButton1Down:Connect(function()
-                for _, b in pairs(PlayerScroll:GetChildren()) do 
-                    if b:IsA("TextButton") then b.BackgroundColor3 = Color3.fromRGB(40, 40, 50) end 
-                end
-                btn.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- GREEN SELECTION LIGHT
+            pBtn.MouseButton1Down:Connect(function()
                 FlingTargetName = p.Name
                 SelectedLabel.Text = "Target: " .. p.Name
             end)
         end
     end
 end
-Players.PlayerAdded:Connect(UpdatePlayerList) Players.PlayerRemoving:Connect(UpdatePlayerList)
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
 UpdatePlayerList()
 
--- FLING ACTIVATOR TOGGLE BUTTON
 local FlingBtn = Instance.new("TextButton", MainFrame)
-FlingBtn.Size, FlingBtn.Position = UDim2.new(0.43, 0, 0, 65), UDim2.new(0.53, 0, 0.25, 0)
+FlingBtn.Size = UDim2.new(0.43, 0, 0, 60)
+FlingBtn.Position = UDim2.new(0.53, 0, 0.24, 0)
 FlingBtn.Text = "💥 FLING ENGINE [OFF]"
-FlingBtn.BackgroundColor3, FlingBtn.TextColor3 = Color3.fromRGB(60, 60, 70), Color3.new(1, 1, 1)
+FlingBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+FlingBtn.TextColor3 = Color3.new(1, 1, 1)
 FlingBtn.Font = Enum.Font.SourceSansBold
 Instance.new("UICorner", FlingBtn)
 
 FlingBtn.MouseButton1Down:Connect(function()
     Flags.FlingEngine = not Flags.FlingEngine
-    FlingBtn.Text = Flags.FlingEngine and "💥 FLING ENGINE [ON]" or "💥 FLING ENGINE [OFF]"
-    FlingBtn.BackgroundColor3 = Flags.FlingEngine and Color3.fromRGB(220, 20, 60) or Color3.fromRGB(60, 60, 70)
-    if Flags.FlingEngine then ExecuteTargetFling() end
+    if Flags.FlingEngine then
+        FlingBtn.Text = "💥 FLING ENGINE [ON]"
+        FlingBtn.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+        ExecuteTargetFling()
+    else
+        FlingBtn.Text = "💥 FLING ENGINE [OFF]"
+        FlingBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    end
 end)
 
--- SCROLLING OPTIONS INTERFACE
 local Scroll = Instance.new("ScrollingFrame", MainFrame)
-Scroll.Size, Scroll.Position = UDim2.new(0.94, 0, 0.52, 0), UDim2.new(0.03, 0, 0.45, 0)
-Scroll.CanvasSize, Scroll.BackgroundTransparency = UDim2.new(0, 0, 3.5, 0), 1
+Scroll.Size = UDim2.new(0.94, 0, 0.54, 0)
+Scroll.Position = UDim2.new(0.03, 0, 0.43, 0)
+Scroll.CanvasSize = UDim2.new(0, 0, 3.2, 0)
+Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 3
 
 local function AddMenuButton(text, pos, flagKey, defaultCol)
     local btn = Instance.new("TextButton", Scroll)
-    btn.Size, btn.Position = UDim2.new(0.92, 0, 0, 36), pos
+    btn.Size = UDim2.new(0.92, 0, 0, 36)
+    btn.Position = pos
     btn.Text = text .. " [OFF]"
-    btn.BackgroundColor3, btn.TextColor3 = Color3.fromRGB(40, 40, 50), Color3.new(1, 1, 1)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SourceSansBold
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Down:Connect(function()
         Flags[flagKey] = not Flags[flagKey]
-        btn.Text = text .. (Flags[flagKey] and " [ON]" or " [OFF]")
-        btn.BackgroundColor3 = Flags[flagKey] and defaultCol or Color3.fromRGB(40, 40, 50)
+        if Flags[flagKey] then
+            btn.Text = text .. " [ON]"
+            btn.BackgroundColor3 = defaultCol
+        else
+            btn.Text = text .. " [OFF]"
+            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        end
     end)
 end
 
 local function CreateSelector(label, items, pos, bgCol, callback)
     local index = 1
     local btn = Instance.new("TextButton", Scroll)
-    btn.Size, btn.Position = UDim2.new(0.92, 0, 0, 36), pos
+    btn.Size = UDim2.new(0.92, 0, 0, 36)
+    btn.Position = pos
     btn.Text = label .. ": " .. string.upper(items[1])
-    btn.BackgroundColor3, btn.TextColor3 = bgCol, Color3.new(1, 1, 1)
+    btn.BackgroundColor3 = bgCol
+    btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SourceSansBold
     Instance.new("UICorner", btn)
     
@@ -276,21 +372,21 @@ local function CreateSelector(label, items, pos, bgCol, callback)
     end)
 end
 
--- --- MENU ARRAY PACK ---
 CreateSelector("🌾 CHOOSE SEED PACK", {"bamboo", "carrot", "strawberry", "ghost"}, UDim2.new(0.04, 0, 0, 0), Color3.fromRGB(30, 144, 255), function(v) TargetSeed = v end)
 AddMenuButton("🛒 AUTO BUY SEEDS", UDim2.new(0.04, 0, 0, 42), "AutoBuy", Color3.fromRGB(0, 128, 128))
 AddMenuButton("🌙 NIGHT STEAL ENGINE", UDim2.new(0.04, 0, 0, 84), "NightSteal", Color3.fromRGB(199, 21, 133))
-AddMenuButton("⚡ EVENT & MOON SNIPER", UDim2.new(0.04, 0, 0, 126), "EventSniper", Color3.fromRGB(218, 165, 32))
+AddMenuButton("⚡ SPECIAL MOON SNIPER", UDim2.new(0.04, 0, 0, 126), "EventSniper", Color3.fromRGB(218, 165, 32))
 AddMenuButton("📈 ENGINE FPS BOOST", UDim2.new(0.04, 0, 0, 168), "FPSBoost", Color3.fromRGB(46, 139, 87))
 AddMenuButton("⚡ TOXIC WALK SPEED (70)", UDim2.new(0.04, 0, 0, 210), "SpeedToggle", Color3.fromRGB(75, 0, 130))
 AddMenuButton("👻 NO COLLISION (NOCLIP)", UDim2.new(0.04, 0, 0, 252), "NoClip", Color3.fromRGB(105, 105, 105))
 AddMenuButton("🦘 UNLIMITED JUMP", UDim2.new(0.04, 0, 0, 294), "InfJump", Color3.fromRGB(70, 130, 180))
 
--- TOGGLE ICON BUBBLE
 local ToggleButton = Instance.new("TextButton", ScreenGui)
-ToggleButton.Size, ToggleButton.Position = UDim2.new(0, 50, 0, 50), UDim2.new(0.02, 0, 0.4, 0)
+ToggleButton.Size = UDim2.new(0, 45, 0, 45)
+ToggleButton.Position = UDim2.new(0.02, 0, 0.4, 0)
 ToggleButton.Text = "MVX"
-ToggleButton.BackgroundColor3, ToggleButton.TextColor3 = Color3.fromRGB(138, 43, 226), Color3.new(1, 1, 1)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
 ToggleButton.Font = Enum.Font.SourceSansBold
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(1, 0)
 ToggleButton.MouseButton1Down:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
