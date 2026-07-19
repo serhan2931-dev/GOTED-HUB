@@ -1,91 +1,81 @@
--- [[ GOTED HUB V55 - PERFECTED PRODUCTION ]] --
-
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
 
-local Flags = {
-    NightSteal = false, AutoHarvest = false, FlingEngine = false,
-    AutoBuy = false, AutoSell = false
-}
+-- UI Elements
+local screenGui = script.Parent
+local menuToggleButton = screenGui:WaitForChild("MenuToggleButton")
+local mainPanel = screenGui:WaitForChild("MainPanel")
+local sprintToggleBtn = mainPanel:WaitForChild("SprintToggleBtn")
 
-local TargetMutation = "none" -- Options: none, gold, rainbow, mega
+-- Color Definitions
+local COLOR_BG = Color3.fromRGB(30, 30, 35)
+local COLOR_BLUE = Color3.fromRGB(0, 150, 255)
+local COLOR_GREEN = Color3.fromRGB(46, 204, 113)
+local COLOR_RED = Color3.fromRGB(231, 76, 60)
+local COLOR_TEXT = Color3.fromRGB(255, 255, 255)
 
--- --- 1. MOON PREDICTION CALCULATOR ---
-local function GetMoonPrediction()
-    local c = Lighting.ClockTime
-    if c >= 18 or c <= 6 then
-        return "NIGHT - ACTIVE"
-    else
-        local mins = math.floor((18 - c) * 60)
-        return "DAY - " .. mins .. "M TO NEXT MOON"
-    end
+-- Setup Initial Visual Style
+mainPanel.BackgroundColor3 = COLOR_BG
+mainPanel.BorderSizePixel = 0
+mainPanel.Visible = false
+
+menuToggleButton.BackgroundColor3 = COLOR_BLUE
+menuToggleButton.TextColor3 = COLOR_TEXT
+menuToggleButton.Text = "🎨 Open Menu"
+
+sprintToggleBtn.BackgroundColor3 = COLOR_RED
+sprintToggleBtn.TextColor3 = COLOR_TEXT
+sprintToggleBtn.Text = "Speed: OFF"
+
+-- State Tracking
+local menuVisible = false
+local sprintActive = false
+
+-- Animation Helper Function
+local function fadeToColor(element, targetColor)
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local tween = TweenService:Create(element, tweenInfo, {BackgroundColor3 = targetColor})
+	tween:Play()
 end
 
--- --- 2. STEAL ENGINE (WITH RETURN LOGIC) ---
-task.spawn(function()
-    while true do
-        task.wait(1)
-        if Flags.NightSteal and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local homePos = LocalPlayer.Character.HumanoidRootPart.CFrame
-            
-            pcall(function()
-                for _, plot in ipairs(Workspace:GetChildren()) do
-                    if not Flags.NightSteal then break end
-                    if string.find(string.lower(plot.Name), "plot") and not string.find(string.lower(plot.Name), string.lower(LocalPlayer.Name)) then
-                        for _, p in ipairs(plot:GetDescendants()) do
-                            if p:IsA("ProximityPrompt") and string.find(string.lower(p.ActionText), "harvest") then
-                                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Parent.CFrame
-                                task.wait(0.1)
-                                fireproximityprompt(p)
-                                task.wait(0.1)
-                                LocalPlayer.Character.HumanoidRootPart.CFrame = homePos -- RETURN TO GARDEN
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
+-- 1. Menu Toggle (Open/Hide) with Animation
+menuToggleButton.MouseButton1Click:Connect(function()
+	menuVisible = not menuVisible
+	mainPanel.Visible = menuVisible
+	
+	if menuVisible then
+		menuToggleButton.Text = "❌ Close Menu"
+		fadeToColor(menuToggleButton, Color3.fromRGB(50, 50, 55)) -- Darkens when open
+	else
+		menuToggleButton.Text = "🎨 Open Menu"
+		fadeToColor(menuToggleButton, COLOR_BLUE)
+	end
 end)
 
--- --- 3. OPTIMIZED FLING ENGINE (NO LAG) ---
-local function ExecuteFling(targetName)
-    local target = Players:FindFirstChild(targetName)
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        local HRP = LocalPlayer.Character.HumanoidRootPart
-        -- Optimized velocity approach to prevent lag
-        local vel = Instance.new("LinearVelocity", HRP)
-        vel.MaxForce = 100000
-        vel.VectorVelocity = (target.Character.HumanoidRootPart.Position - HRP.Position).Unit * 50
-        task.wait(0.5)
-        vel:Destroy()
-    end
-end
+-- 2. Feature Toggle (On/Off) with Dynamic Colors
+sprintToggleBtn.MouseButton1Click:Connect(function()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+	
+	sprintActive = not sprintActive
+	
+	if sprintActive then
+		humanoid.WalkSpeed = 32
+		sprintToggleBtn.Text = "🟢 Speed: ON"
+		fadeToColor(sprintToggleBtn, COLOR_GREEN)
+	else
+		humanoid.WalkSpeed = 16
+		sprintToggleBtn.Text = "🔴 Speed: OFF"
+		fadeToColor(sprintToggleBtn, COLOR_RED) -- Fixed the broken line here
+	end
+end)
 
--- --- 4. MUTATION HARVEST FILTER ---
-local function SmartHarvest(prompt)
-    if Flags.AutoHarvest then
-        local pName = string.lower(prompt.Parent.Name)
-        if TargetMutation == "none" or string.find(pName, TargetMutation) then
-            fireproximityprompt(prompt)
-        end
-    end
-end
-
--- --- 5. UI LAYER ---
-local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 200, 0, 300)
-Main.Draggable = true
-
-local MoonText = Instance.new("TextLabel", Main)
-MoonText.Size = UDim2.new(1, 0, 0, 50)
-task.spawn(function()
-    while true do
-        MoonText.Text = "MOON: " .. GetMoonPrediction()
-        task.wait(1)
-    end
+-- Make sure speed persists if the player dies/respawns while speed is active
+player.CharacterAdded:Connect(function(newCharacter)
+	if sprintActive then
+		local humanoid = newCharacter:WaitForChild("Humanoid")
+		humanoid.WalkSpeed = 32
+	end
 end)
